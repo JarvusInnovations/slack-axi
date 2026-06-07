@@ -29,15 +29,15 @@ unconfirmed direct posting. Honors multi-workspace write-protection.
 
 ## Validation
 
-- [~] `react <channel> <ts> :emoji:` adds the reaction; re-running (`already_reacted`) is a no-op at
-      exit 0. *(code complete + arg validation verified; live reaction not fired — outward-facing,
-      awaiting a user-chosen target.)*
+- [x] `react <channel> <ts> :emoji:` adds the reaction; re-running (`already_reacted`) is a no-op at
+      exit 0. *(verified live in #integration-testing: `:rocket:` added, re-react no-op; dotted-ts +
+      bare `eyes` form also works.)*
 - [x] `draft <channel> "<text>"` creates a stored draft and returns it in full **without sending**;
       help[] offers `draft send <id>`. *(verified.)*
 - [x] `draft <channel> --reply <ts> "<text>"` records the thread target. *(verified: reply_to stored.)*
-- [~] `draft send <id>` posts via `chat.postMessage`, returns permalink + ts; re-running acknowledges
-      the prior send (no duplicate), exit 0. *(code complete; not-found path verified; live post not
-      fired — outward-facing, awaiting go-ahead. Idempotency via the stored `sent` marker.)*
+- [x] `draft send <id>` posts via `chat.postMessage`, returns permalink + ts; re-running acknowledges
+      the prior send (no duplicate), exit 0. *(verified live: posted a top-level message + a threaded
+      reply (thread_ts in permalink); re-send was a no-op; read-back showed both with the reply inlined.)*
 - [x] `draft list` shows pending drafts; `draft discard <id>` removes one (idempotent). *(verified.)*
 - [~] With 2+ workspaces, a mutation requires an explicit team. *(only one workspace is authed, so not
       triggerable; enforced via `activeSession({mutation:true})` → `resolveActiveToken`. `draft send`
@@ -51,13 +51,15 @@ unconfirmed direct posting. Honors multi-workspace write-protection.
 
 ## Notes
 
-The non-mutating surface (draft create/list/discard, `--reply`, error paths, arg validation) is verified
-on Jarvus. `react` and `draft send` are code-complete but were **not fired at the live workspace** —
-they're outward-facing (a visible reaction / a posted message), so live verification awaits a
-user-chosen safe target (e.g. a self-DM). `draft send` marks the draft `sent` for idempotency rather
-than deleting it. Committed to trunk.
+Fully verified live in `#integration-testing` (a sanctioned scratch channel): a posted message, an
+idempotent re-send, `:rocket:`/`:eyes:` reactions (incl. re-react no-op and dotted-ts/bare-name forms),
+a threaded reply, and a write→read round-trip showing the reply inlined. `draft send` marks the draft
+`sent` for idempotency rather than deleting it. Committed to trunk.
+
+Note: Slack normalizes unicode emoji in posted text to `:shortcode:` (e.g. `🤖` → `:robot_face:`) —
+expected platform behavior, surfaced on read-back.
 
 ## Follow-ups
 
-- **Live-fire verification (user-gated):** confirm `react` and `draft send` against a target the user
-  picks (self-DM or a scratch channel) — the only outstanding check, deliberately not auto-run.
+- None. (A `react --remove` / unreact and arbitrary `read --fields reactions` display are possible
+  future niceties, not gaps.)
