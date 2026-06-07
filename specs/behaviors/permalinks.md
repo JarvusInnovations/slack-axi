@@ -22,6 +22,16 @@ when it actually cites.
   the `ts`. The `ts` is therefore the **minimal stateless citation key** — no shorter handle exists
   without introducing state (a per-read ordinal like `#5` can't be resolved by a follow-up command in a
   fresh shell).
+- The handle is the **decimal `ts` itself**, not a denser encoding. Considered and rejected:
+  base62/base64 packing shrinks the ~51-bit ts from 16 chars to ~9, but the cost that matters is
+  *tokens*, not characters — digit runs tokenize at ~3/token (~6 tokens for the full ts), while
+  high-entropy mixed-case strings have no BPE merges and tokenize at ~1 token/char (~5–9 tokens for 9
+  base62 chars). So a denser alphabet is a token wash-or-worse while losing three real properties: the
+  handle would no longer *be* the Slack `ts` (forcing a decode step in `thread`/`react`/`draft`/`cite`),
+  it would be case-sensitive and copy-fragile, and it would be illegible. Delta-encoding against a
+  header `epoch_base` is the only representation that genuinely saves tokens (~2/row) but reintroduces
+  cross-invocation state (`cite` would need the base), which defeats the stateless-handle goal. Decimal
+  `ts` is near token-optimal, zero-decode, robust, and self-contained.
 - `ts` is rendered dotless and compact (`1717589640123456`, ~16 chars / ~6–8 tokens) and is in the
   **default** `read`/`search` schema. It is the citation key downstream commands consume.
 
