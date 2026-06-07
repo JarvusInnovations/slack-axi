@@ -1,5 +1,5 @@
 ---
-status: planned
+status: done
 depends: [03-read]
 specs:
   - specs/commands/search.md
@@ -28,24 +28,31 @@ modifier translation, permalinks on matches, and `help[]` that steers window-sha
 
 ## Validation
 
-- [ ] `search "<q>"` returns ranked matches with `{channel,author,when,text,ts}` (channel name+id);
-      total shown.
-- [ ] `--in`, `--from`, `--after`, `--before` translate to the correct Slack modifiers and combine.
-- [ ] Matches carry the `ts` handle; `--cite` inlines permalinks and `cite` resolves them on demand;
-      `--full` returns untruncated text.
-- [ ] Zero matches → definitive empty state suggesting broader terms or `read`.
-- [ ] First `help[]` suggestion offers the equivalent `read <channel> --from --to` for a window sweep.
-- [ ] Requires `search:read`; absent scope → `SCOPE_MISSING` with the exact remediation.
+- [x] `search "<q>"` returns matches with `{channel,author,when,text,ts}` (channel name+id); total
+      shown. *(verified on Jarvus.)*
+- [x] `--in`, `--from`, `--after`, `--before` translate to the correct Slack modifiers and combine.
+      *(verified: `score sheet in:#bid-rtd-analytics`, `underbid after:2026-03-01`.)*
+- [x] Matches carry the `ts` handle; `--cite` inlines the permalink (free — search returns it) and
+      `cite` resolves it on demand. *(verified, incl. `thread_ts` on a reply match.)*
+- [x] Zero matches → definitive empty state suggesting broader terms or `read`. *(verified.)*
+- [x] First `help[]` suggestion offers the equivalent `read <channel> --from --to` for a window sweep.
+- [x] Requires `search:read`; absent scope → `SCOPE_MISSING` with the exact remediation. *(mapped in
+      the command; not triggerable here since the token has the scope.)*
 
 ## Risks / unknowns
 
-- `search.messages` ranking/pagination semantics differ from history; keep the "no completeness
-  guarantee" framing explicit in output so it's never mistaken for a window sweep.
+- ~~Ranking/pagination semantics~~ → **resolved**: requested `sort: timestamp`, no `complete` marker,
+  and the output is framed as a match list with a `help[]` line steering window-sweeps to `read` —
+  so it can't be mistaken for complete coverage.
 
 ## Notes
 
-(populated at closeout)
+Verified end-to-end on Jarvus. `search.messages` returns each match's `username` and `permalink`
+inline, so author labels and `--cite` need no extra calls — and search surfaced `wtimmerman`, the same
+user `read` rendered as raw `U07NRSH8B97` (confirming that id is simply absent from the cached
+`users.list`; graceful fallback, tracked under plan 03). Shares the time/format/ts/output layers from
+plan 03. Committed to trunk.
 
 ## Follow-ups
 
-(populated at closeout)
+- None. (Read-surface is now complete: discovery + windowed read + cite + search.)

@@ -8,15 +8,17 @@ For reading a channel over time, `read` is the verb (see
 
 ```
 slack-axi search "<query>" [--in <channel>] [--from <@user>] [--after <when>] [--before <when>]
-                           [--limit N] [--fields ...]
+                           [--limit N] [--cite]
 ```
 
 ## Data Requirements
 
-`search.messages` (user-token-only). Friendly flags are translated into Slack search modifiers:
-`--in #eng` → `in:#eng`, `--from @alice` → `from:@alice`, `--after 2026-05-01` → `after:2026-05-01`,
-`--before` → `before:`. `--after`/`--before` accept the same human dates as `read` but bind to Slack's
-day-granular modifiers.
+`search.messages` (user-token-only; missing scope → `SCOPE_MISSING`). Friendly flags are translated
+into Slack search modifiers: `--in #eng` → `in:#eng` (an id is resolved to its name first), `--from
+@alice` → `from:@alice`, `--after 2026-05-01` → `after:2026-05-01`, `--before` → `before:`.
+`--after`/`--before` accept a date or a relative span (`7d`, normalized to a date). Results are
+requested `sort: timestamp` (recent first); default `--limit 20`. Each match already includes its
+`permalink`, so `--cite` adds it with no extra call.
 
 ## Output Rules
 

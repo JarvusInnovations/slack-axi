@@ -13,11 +13,12 @@ import { citeCommand, CITE_HELP } from "./commands/cite.js";
 import { doctorCommand, DOCTOR_HELP } from "./commands/doctor.js";
 import { homeCommand } from "./commands/home.js";
 import { readCommand, READ_HELP, threadCommand, THREAD_HELP } from "./commands/read.js";
+import { searchCommand, SEARCH_HELP } from "./commands/search.js";
 import { DESCRIPTION, readVersion } from "./meta.js";
 
 export const TOP_HELP = `usage: slack-axi [command] [args] [flags]
-commands[9]:
-  (none)=home, auth, doctor, channels, dms, members, read, thread, cite
+commands[10]:
+  (none)=home, auth, doctor, channels, dms, members, read, thread, cite, search
 flags[2]:
   --team <id> (per-command), --help, -v/--version
 examples:
@@ -38,6 +39,7 @@ const COMMAND_HELP: Record<string, string> = {
   read: READ_HELP,
   thread: THREAD_HELP,
   cite: CITE_HELP,
+  search: SEARCH_HELP,
 };
 
 export async function main(): Promise<void> {
@@ -56,6 +58,7 @@ export async function main(): Promise<void> {
       read: (args) => readCommand(args),
       thread: (args) => threadCommand(args),
       cite: (args) => citeCommand(args),
+      search: (args) => searchCommand(args),
     },
     getCommandHelp: (command) => COMMAND_HELP[command],
   });

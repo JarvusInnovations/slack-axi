@@ -3,6 +3,7 @@ import { takeBool, takeFlag } from "../flags.js";
 import { encodeObject, joinBlocks, renderHelp, renderList, truncate } from "../output.js";
 import { activeSession, type Session } from "../session.js";
 import { allCachedUsers, ensureUsers, type UserMeta } from "../slack/cache.js";
+import { formatText, userName } from "../slack/format.js";
 import { getPermalink } from "../slack/permalink.js";
 import { channelLabel, resolveChannel } from "../slack/resolve.js";
 import { fetchReplies, fetchThread, fetchWindow, isBot, type Msg } from "../slack/threads.js";
@@ -211,23 +212,6 @@ function authorName(msg: Msg, users: Record<string, UserMeta>): string {
   if (msg.user) return userName(msg.user, users);
   if (msg.botId) return "(bot)";
   return "(system)";
-}
-
-function userName(id: string, users: Record<string, UserMeta>): string {
-  const u = users[id];
-  return u ? u.display_name || u.real_name || u.name || id : id;
-}
-
-/** Resolve Slack markup to readable text: <@U|name> mentions, <#C|name> channels, <url|label> links. */
-function formatText(text: string, users: Record<string, UserMeta>): string {
-  return text
-    .replace(/<@(U[A-Z0-9]+)(?:\|([^>]+))?>/g, (_m, id, name) => `@${name || userName(id, users)}`)
-    .replace(/<#C[A-Z0-9]+\|([^>]+)>/g, (_m, name) => `#${name}`)
-    .replace(/<(https?:[^|>]+)\|([^>]+)>/g, (_m, _url, label) => label)
-    .replace(/<(https?:[^>]+)>/g, (_m, url) => url)
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">");
 }
 
 function indentLines(text: string, spaces: number): string {
