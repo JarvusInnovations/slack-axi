@@ -58,8 +58,9 @@ Every windowed read emits, in the header:
   `N`. The marker is accompanied by the total seen and a `help[]` hint to raise `--limit` or narrow
   the window.
 
-The list count is always `messages[<returned> of <total-in-window>]` so partial results are
-unambiguous. See [principles.md → Never silently truncate](../principles.md#never-silently-truncate).
+The header carries a `messages: <returned> of <total>` count of **top-level** messages so partial
+results are unambiguous (inlined thread replies are additional rows beyond that count). See
+[principles.md → Never silently truncate](../principles.md#never-silently-truncate).
 
 ### Date framing
 

@@ -9,22 +9,24 @@ import {
   membersCommand,
   MEMBERS_HELP,
 } from "./commands/channels.js";
+import { citeCommand, CITE_HELP } from "./commands/cite.js";
 import { doctorCommand, DOCTOR_HELP } from "./commands/doctor.js";
 import { homeCommand } from "./commands/home.js";
+import { readCommand, READ_HELP, threadCommand, THREAD_HELP } from "./commands/read.js";
 import { DESCRIPTION, readVersion } from "./meta.js";
 
 export const TOP_HELP = `usage: slack-axi [command] [args] [flags]
-commands[6]:
-  (none)=home, auth, doctor, channels, dms, members
+commands[9]:
+  (none)=home, auth, doctor, channels, dms, members, read, thread, cite
 flags[2]:
   --team <id> (per-command), --help, -v/--version
 examples:
   slack-axi
-  slack-axi auth setup
-  slack-axi channels
-  slack-axi channels --type private
-  slack-axi members <channel>
-  slack-axi doctor`;
+  slack-axi channels --match bid
+  slack-axi read #bid-rtd-analytics --since 7d
+  slack-axi read #eng --from 2026-04-23 --to 2026-04-29
+  slack-axi thread <channel> <ts>
+  slack-axi cite <channel> <ts>`;
 
 const COMMAND_HELP: Record<string, string> = {
   auth: AUTH_HELP,
@@ -33,6 +35,9 @@ const COMMAND_HELP: Record<string, string> = {
   dms: DMS_HELP,
   members: MEMBERS_HELP,
   cache: CACHE_HELP,
+  read: READ_HELP,
+  thread: THREAD_HELP,
+  cite: CITE_HELP,
 };
 
 export async function main(): Promise<void> {
@@ -48,6 +53,9 @@ export async function main(): Promise<void> {
       dms: (args) => dmsCommand(args),
       members: (args) => membersCommand(args),
       cache: (args) => cacheCommand(args),
+      read: (args) => readCommand(args),
+      thread: (args) => threadCommand(args),
+      cite: (args) => citeCommand(args),
     },
     getCommandHelp: (command) => COMMAND_HELP[command],
   });

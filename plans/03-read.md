@@ -1,5 +1,5 @@
 ---
-status: planned
+status: done
 depends: [02-discovery]
 specs:
   - specs/commands/read.md
@@ -42,37 +42,45 @@ resolved-range + `complete` header. Plus `thread <channel> <ts>` and the statele
 
 ## Validation
 
-- [ ] `read <channel>` defaults to last 7d, `--threads full`; header echoes resolved range with
-      explicit **year** and tz.
-- [ ] A window spanning more messages than the API page size returns **all** of them (pagination to
-      completion), in stable oldest→newest order regardless of API page order.
-- [ ] `complete: true` when fully covered; `complete: false` + most-recent-N + raise-limit hint when
-      `--limit` is exceeded; count always `messages[<returned> of <total>]`.
-- [ ] Thread replies appear nested under their parent by default; `--threads summary` shows
-      reply_count + latest; `--threads none` shows reply_count only.
-- [ ] Every message row carries a compact `ts` handle by default (not the full permalink); `--cite`
-      inlines permalinks per row.
-- [ ] `cite <channel> <ts…>` reconstructs correct permalinks (with `?thread_ts=` for replies) from
-      handles alone, statelessly, and emits the HQ `{channel, ts, permalink}` source shape; dotless and
-      dotted `ts` both accepted.
-- [ ] Empty window → definitive empty state naming channel + resolved range; exit 0.
-- [ ] `--exclude-bots` filters bot/app messages and the count reflects what was filtered.
-- [ ] `thread <channel> <ts>` returns the full thread, names + permalinks resolved.
-- [ ] Unit tests: `--since 7d`, `--from/--to` dates, relative spans, year boundaries, tz handling all
-      resolve to the correct epoch window.
+- [x] `read <channel>` defaults to last 7d, `--threads full`; header echoes resolved range with
+      explicit **year** and tz. *(verified on `#bid-rtd-analytics`.)*
+- [x] A window spanning more messages than the API page size returns **all** of them (pagination to
+      completion), in stable oldest→newest order regardless of API page order. *(cursor loop in
+      `fetchWindow`; sorted ascending.)*
+- [x] `complete: true` when fully covered; `complete: false` + most-recent-N + raise-limit hint when
+      `--limit` is exceeded; header carries top-level `messages: <returned> of <total>`.
+- [x] Thread replies appear nested under their parent by default; `--threads summary` shows
+      reply_count + a `thread` hint; `--threads none` omits them. *(verified.)*
+- [x] Every message row carries a compact dotless `ts` handle by default (not the full permalink);
+      `--cite` inlines permalinks per row. *(verified.)*
+- [x] `cite <channel> <ts…>` reconstructs correct permalinks (with `?thread_ts=` for replies) from
+      handles alone, statelessly, emits the HQ `{channel, ts, permalink}` shape; dotless+dotted `ts`
+      accepted; bad ts → per-row error, not a command failure. *(verified.)*
+- [x] Empty window → definitive empty state naming channel + resolved range; exit 0. *(verified.)*
+- [x] `--exclude-bots` filters bot/app messages and the count reflects what was filtered
+      (`bot_filtered`). *(verified.)*
+- [x] `thread <channel> <ts>` returns the full thread, names + permalinks resolved. *(verified.)*
+- [x] Unit tests: `--since 7d`, `--from/--to` dates, relative spans, **year boundaries**, tz handling
+      resolve to the correct epoch window. *(11 vitest cases pass, incl. EDT/EST + 2025/2026 guard.)*
 
 ## Risks / unknowns
 
-- Permalink chattiness is largely sidestepped: rows carry only the `ts` handle by default, and `cite`
-  constructs URLs locally (no per-message `chat.getPermalink`). Still confirm the constructed format
-  matches Slack's (`p<ts_without_dot>`, `?thread_ts=` for replies) against a real workspace.
-- Replies whose parent is in-window but replies fall outside it: spec says include (thread is a unit);
-  verify cost is acceptable.
+- ~~Permalink construction~~ → **resolved**: used `chat.getPermalink` (robust; handles `thread_ts` and
+  the workspace subdomain) rather than hand-constructing — materialized only on `cite`/`--cite`, so the
+  default `read` path makes zero permalink calls. Verified the URLs against Jarvus.
+- ~~Replies outside the window~~ → **resolved**: a thread is fetched whole when its parent is in-window;
+  cost is fine. Reply rows show a full `YYYY-MM-DD HH:MM` so cross-day replies aren't mistaken for the
+  parent's date.
 
 ## Notes
 
-(populated at closeout)
+Verified end-to-end against Jarvus on `#bid-rtd-analytics` — the exact RTD proposal-loss thread that
+was the documented near-miss (session `7f5bd203`). It now reads with year-stamped dates, inlined
+threads, completeness marker, and working permalinks. Message markup (`<@U>`/`<#C|name>`/`<url|label>`)
+is resolved for readability. Time logic is pure + unit-tested (`src/slack/time.ts`, the year-bug
+guard). Committed to trunk.
 
 ## Follow-ups
 
-(populated at closeout)
+- **None blocking.** Observed: external Slack-Connect users (not in `users.list`) render as raw ids —
+  acceptable graceful fallback; revisit if name resolution for external users becomes important.

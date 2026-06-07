@@ -203,3 +203,8 @@ export async function ensureUsers(session: Session): Promise<void> {
 export function cachedUser(teamId: string, id: string): UserMeta | undefined {
   return loadUsers(teamId).users[id];
 }
+
+/** The whole users map (one file read) — for labeling many messages without repeated reads. */
+export function allCachedUsers(teamId: string): Record<string, UserMeta> {
+  return loadUsers(teamId).users;
+}

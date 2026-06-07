@@ -27,38 +27,46 @@ slack-axi thread <channel> <ts>
 
 Governed by [time-and-completeness.md](../behaviors/time-and-completeness.md),
 [threads.md](../behaviors/threads.md), [permalinks.md](../behaviors/permalinks.md), and
-[output-format.md](../behaviors/output-format.md). Header carries workspace, channel (name+id+type),
-**resolved range with explicit year + tz**, and **`complete` marker**. Messages grouped by Eastern
-date; default schema `{time,author,text,ts}`; replies nested `↳`.
+[output-format.md](../behaviors/output-format.md). A top-of-output header carries workspace, channel
+(label+id+type), **resolved range with explicit year + tz**, a **top-level `messages: <shown> of
+<total>`** count, and the **`complete` marker**. Messages are then grouped by Eastern date; default
+schema `{time,author,text,ts}`; replies are inlined under their parent prefixed `↳`.
 
-The compact `ts` is the stateless citation **handle** (not the full permalink — see
+The compact `ts` is the stateless citation **handle** (dotless; not the full permalink — see
 [permalinks.md](../behaviors/permalinks.md)). Permalinks are materialized on demand via
 `slack-axi cite <channel> <ts…>`, or inlined up front with `--cite` for bulk-ingest.
 
 ```
-workspace: Jarvus (T01ABC)
-channel: #eng (C0B, private)
-range: 2026-05-30 → 2026-06-06 (America/New_York)
+workspace: Jarvus (T024GATE8)
+channel: "#eng (C0B, private)"
+range: "2026-05-30 09:14 → 2026-06-06 09:15 (America/New_York)"
+messages: 3 of 3 top-level (threads inlined below)
 complete: true
 2026-06-05:
-  messages[2 of 12]{time,author,text,ts}:
-    09:14,alice,"Shipping the auth fix today",1717589640123456
-    09:15,bob,"↳ did the token refresh land?",1717589700234567
+  messages[2]{time,author,text,ts}:
+    "09:14",alice,"Shipping the auth fix today",1717589640123456
+    "2026-06-06 09:15",bob,"↳ did the token refresh land?",1717589700234567
 2026-06-06:
-  messages[1 of 12]{time,author,text,ts}:
-    08:02,carol,"Standup moved to 10:30",1717675320345678
-help[2]:
-  Run `slack-axi thread #eng 1717589640123456` to expand a thread
-  Run `slack-axi cite #eng 1717589640123456 …` to get permalinks for messages you cite
+  messages[1]{time,author,text,ts}:
+    "08:02",carol,"Standup moved to 10:30",1717675320345678
+help[1]:
+  Run `slack-axi cite #eng 1717589640123456 <ts...>` for permalinks to messages you cite
 ```
 
 - Default window: last 7d. Default `--threads full`.
-- `complete: false` when the window exceeds `--limit`; response is the most recent N, with a `help[]`
-  hint to raise the limit or narrow the window.
-- Empty window → definitive empty state naming the channel and resolved range.
-- `--cite` (alias `--fields permalink`) inlines permalinks per row for bulk-ingest; `--fields
-  user_id,reactions,subtype` adds columns; `--full` returns untruncated text.
-- `ts` accepted in commands (`thread`, `cite`, `react`, `draft --reply`) in either dotless
+- The headline count is **top-level messages** (`<shown> of <total>`); inlined replies are additional
+  rows within the per-date `messages[k]` groups, so a group's row count may exceed the headline.
+- A **parent's time** is `HH:MM` (its date is the group header); a **reply's time** is the full
+  `YYYY-MM-DD HH:MM`, because a reply can fall on a later day than the parent it's grouped under.
+- `complete: false` when the window exceeds `--limit`; response is the most recent N top-level
+  messages, with a `help[]` hint to raise the limit or narrow the window.
+- Empty window → definitive empty state naming the channel and resolved range; exit 0.
+- Message text has Slack markup resolved for readability: `<@U…>` → `@name`, `<#C…|name>` → `#name`,
+  `<url|label>` → `label`, `&amp;/&lt;/&gt;` decoded. External (Slack Connect) users not in the
+  workspace directory fall back to their raw id.
+- `--cite` inlines a `permalink` column for bulk-ingest; `--threads full|summary|none`,
+  `--exclude-bots` (count reported as `bot_filtered`), `--tz <zone>`, `--full` (untruncated text).
+- `ts` is accepted by `thread`/`cite` (and later `react`/`draft --reply`) in either dotless
   (`1717589640123456`) or dotted (`1717589640.123456`) form.
 
 ## Actions
