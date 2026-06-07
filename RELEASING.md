@@ -43,15 +43,26 @@ So day-to-day you only ever merge to `develop`; everything downstream is automat
    `JarvusInnovations/infra-components@channels/github-actions/.../latest` actions. Ensure this repo's
    Actions can resolve them (the same org-internal access gws-axi has).
 
+## Bootstrapping (do this first)
+
+`release-validate` enforces that **every PR targeting `main` must be titled `Release: vX.Y.Z`**
+(verified live: it fails any other title with `PR title must match format "Release: vX.Y.Z(-rc.#)?"`).
+That's the whole point of the develop→main model — only the auto-generated release PRs ever target
+`main`. But it creates a one-time bootstrap wrinkle:
+
+1. **This repo-hygiene/release PR will show `release-validate` red** because its title isn't a release
+   title. That's expected. Merge it anyway (admin override) to land the workflows on `main` — do **not**
+   make `release-validate` a required status check until the develop flow is live.
+2. Create `develop` from `main` and switch day-to-day work there.
+3. From then on the only PRs to `main` are `release-prepare`'s "Release: vX.Y.Z" PRs, which pass
+   `release-validate` — so the red check never recurs for normal work.
+
 ## Caveats / things I couldn't verify
 
-- **`release-validate` runs on _every_ PR to `main`**, including ordinary ones. This mirrors gws-axi,
-  where it coexists with normal PRs — but if it flags a non-release PR, that's expected behavior, not a
-  blocker; review/merge as usual. (It will run on the repo-hygiene PR that introduces these files.)
 - I **could not inspect** the private `infra-components` actions, so all four workflows are copied
-  **verbatim from gws-axi** (the proven, working reference). If gws-axi's release flow has since
-  diverged (action refs, version-bump convention, changelog location), re-sync from it. We already use
-  conventional commits, which is what the version tooling typically keys on.
+  **verbatim from gws-axi** (the proven, working reference). The version tooling keys on
+  conventional-commit messages (which we already use). If gws-axi's release flow has since diverged
+  (action refs, version-bump convention, changelog location), re-sync from it.
 
 ## Summary
 
