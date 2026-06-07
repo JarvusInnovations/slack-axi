@@ -8,7 +8,7 @@
     "url": "git+https://github.com/JarvusInnovations/slack-axi.git"
   },
   "bin": {
-    "slack-axi": "./dist/bin/slack-axi.js"
+    "slack-axi": "dist/bin/slack-axi.js"
   },
   "publishConfig": {
     "access": "public"
@@ -22,7 +22,8 @@
     "build": "tsc && chmod +x dist/bin/slack-axi.js",
     "dev": "bun bin/slack-axi.ts",
     "test": "vitest run --passWithNoTests",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "prepublishOnly": "bun run build"
   },
   "engines": {
     "node": ">=20"
