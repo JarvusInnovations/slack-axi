@@ -1,0 +1,34 @@
+{
+  "name": "slack-axi",
+  "version": "0.1.0",
+  "description": "AXI-compliant Slack CLI — read, search, and draft Slack with token-efficient TOON output",
+  "type": "module",
+  "bin": {
+    "slack-axi": "./dist/bin/slack-axi.js"
+  },
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "bun bin/slack-axi.ts",
+    "test": "vitest run --passWithNoTests",
+    "test:watch": "vitest"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@slack/web-api": "^7.16.0",
+    "@toon-format/toon": "^2.3.0",
+    "axi-sdk-js": "^0.1.7"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0",
+    "vitest": "^4.1.8"
+  }
+}
