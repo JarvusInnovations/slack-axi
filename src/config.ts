@@ -59,6 +59,14 @@ export function tokenPath(teamId: string): string {
   return join(workspaceDir(teamId), "token.json");
 }
 
+export function cacheChannelsPath(teamId: string): string {
+  return join(configDir(), "cache", teamId, "channels.json");
+}
+
+export function cacheUsersPath(teamId: string): string {
+  return join(configDir(), "cache", teamId, "users.json");
+}
+
 function readJson<T>(path: string): T | undefined {
   if (!existsSync(path)) return undefined;
   try {

@@ -1,5 +1,6 @@
 import { listWorkspaceIds, resolveActiveToken } from "../config.js";
 import { encodeBlock, joinBlocks, renderHelp } from "../output.js";
+import { cachedChannels } from "../slack/cache.js";
 
 /**
  * Content-first no-args view. See specs/commands/home.md. The SDK prepends the bin/description
@@ -23,11 +24,16 @@ export async function homeCommand(): Promise<string> {
     : active.teamId ?? "(from SLACK_AXI_TOKEN)";
 
   const stored = listWorkspaceIds();
-  const status = encodeBlock("workspace", workspaceLabel);
+  // Cache-only (no network): home loads on every session, so never refresh here.
+  const channelCount = active.teamId ? cachedChannels(active.teamId).filter((c) => c.is_member).length : 0;
 
-  const help: string[] = ["Run `slack-axi doctor` to verify auth + scopes"];
+  const statusFields: Record<string, unknown> = { workspace: workspaceLabel };
+  if (channelCount > 0) statusFields.your_channels = channelCount;
+  const status = encodeBlock("status", statusFields);
+
+  const help: string[] = ["Run `slack-axi channels` to list your channels (all types)"];
   if (stored.length > 1) help.push("Run `slack-axi auth workspaces` to see all workspaces");
-  help.push("Run `slack-axi --help` for the full command list");
+  help.push("Run `slack-axi doctor` to verify auth + scopes");
 
   return joinBlocks(status, renderHelp(help));
 }

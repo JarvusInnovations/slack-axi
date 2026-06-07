@@ -1,5 +1,5 @@
 ---
-status: planned
+status: done
 depends: [01-scaffold-auth]
 specs:
   - specs/commands/channels.md
@@ -35,29 +35,46 @@ channels / group DMs" pain and makes `#name`/id interchangeable everywhere downs
 
 ## Validation
 
-- [ ] `slack-axi channels` returns public + private + mpim + im the user belongs to, without the agent
-      specifying `--type`; each row pairs name+id+type; total shown (`channels[N of M]`).
-- [ ] A private channel and a group DM the user is in both appear by default.
-- [ ] `slack-axi channels --all` paginates `conversations.list` to completion.
-- [ ] `read`/other commands can address a channel by `#name`, bare `name`, or id (resolution unit
-      verified here even if `read` lands in plan 03).
-- [ ] Channel-name miss refreshes the cache then errors with closest fuzzy matches (not a bare fail).
-- [ ] `dms` resolves participant names; `members <channel>` resolves member names, paginated.
-- [ ] `search channels <q>` ranks member channels first.
-- [ ] `slack-axi` no-args home shows workspace, unread/mention count, top channels, help[]; stays
-      token-minimal.
-- [ ] `cache refresh` rebuilds caches.
+- [x] `slack-axi channels` returns public + private + mpim + im the user belongs to, without the agent
+      specifying `--type`; each row pairs name+id+type; total shown. *(Jarvus: 1564 total — 125 public,
+      390 private, 797 mpim, 252 im.)*
+- [x] A private channel and a group DM the user is in both appear by default. *(verified.)*
+- [x] `slack-axi channels --all` paginates `conversations.list` to completion. *(688 workspace
+      public+private vs 515 member; `is_member` column present.)*
+- [x] Commands can address a channel by `#name`, bare `name`, or id. *(verified: private `#2one5` →
+      `CHVBC6KLH`; id path via `conversations.info` on cache miss.)*
+- [x] Channel-name miss refreshes the cache then errors with closest fuzzy matches (not a bare fail).
+      *(prefix-scored suggestions: `bid-rtd-xyz-nope` → `#bid-rtd-analytics`, …)*
+- [x] `dms` resolves participant names; `members <channel>` resolves member names, paginated.
+      *(mpim participants parsed from the channel name — no API calls.)*
+- [x] Channel-find ranks member channels first. *(implemented as `channels --match <q>`; member
+      channels are the default pool, so they rank first. `search channels` subcommand dropped to avoid
+      colliding with plan 04's message `search`.)*
+- [x] `slack-axi` no-args home shows workspace + a cache-only channel count + help[]; stays
+      token-minimal. *(unread/most-active deferred — see risk below.)*
+- [x] `cache refresh` rebuilds caches.
 
 ## Risks / unknowns
 
-- Unread/mention counts: `users.conversations` doesn't return unreads directly; may need
-  `conversations.info` per channel or accept an approximate/omitted unread in v1 — decide during impl,
-  prefer omitting over an expensive fan-out if costly. Log the decision back into home.md.
+- ~~Unread/mention counts~~ → **resolved (deferred)**: `users.conversations` returns no unread, and a
+  per-channel `conversations.info` fan-out would be 1500+ calls. v1 omits unread entirely and sorts by
+  type-group then name; home shows a cache-only channel count instead of an unread summary. Decision
+  recorded in `channels.md` / `home.md` ("Deferred in v1"). Revisit if a bulk unread source appears.
+- New (managed): a default `channels` would dump 1564 rows (~19k tokens). Added `--limit` (default 50)
+  with an explicit `[shown of total]` + raise-`--limit` hint, honoring the no-silent-caps principle.
 
 ## Notes
 
-(populated at closeout)
+Verified end-to-end against Jarvus (T024GATE8). Discovery now surfaces everything the old MCP couldn't:
+390 private channels, 797 group DMs, 252 DMs. Group-DM participants are parsed from the Slack channel
+name (`mpdm-…`), so `dms` needs zero per-conversation calls. Committed to trunk.
+
+Notable implementation choices recorded in specs: default `--limit 50` with explicit truncation
+(no-silent-caps); unread/most-active sort deferred (no cheap source); channel-find via `--match` rather
+than a `search channels` subcommand (avoids colliding with plan 04's message `search`); the resolution
+cache (`channels.json`/`users.json`, 1h TTL) backs every downstream command.
 
 ## Follow-ups
 
-(populated at closeout)
+- **Tracked as:** unread/mention surfacing is deferred to a future plan if a bulk unread source becomes
+  available (see Risks). Not blocking any current plan.
