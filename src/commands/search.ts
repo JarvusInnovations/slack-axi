@@ -14,6 +14,7 @@ over a time window completely, use \`read <channel> --from --to\` instead.
 flags[6]:
   --in <channel>   Limit to a channel (#name or id)
   --from <@user>   Limit to a sender
+  --with <@user>   Limit to conversations that include this person (any sender)
   --after <when>   On/after a date (2026-05-01) or span (7d)
   --before <when>  On/before a date or span
   --limit <n>      Max matches (default 20)
@@ -31,7 +32,8 @@ export async function searchCommand(args: string[]): Promise<string> {
   const team = takeFlag(args, "--team");
   const inFlag = takeFlag(team.rest, "--in");
   const fromFlag = takeFlag(inFlag.rest, "--from");
-  const after = takeFlag(fromFlag.rest, "--after");
+  const withFlag = takeFlag(fromFlag.rest, "--with");
+  const after = takeFlag(withFlag.rest, "--after");
   const before = takeFlag(after.rest, "--before");
   const limitFlag = takeFlag(before.rest, "--limit");
   const citeFlag = takeBool(limitFlag.rest, "--cite");
@@ -51,7 +53,8 @@ export async function searchCommand(args: string[]): Promise<string> {
   // Translate friendly flags into Slack search modifiers.
   const parts = [query];
   if (inFlag.value) parts.push(`in:#${await channelNameFor(session, inFlag.value)}`);
-  if (fromFlag.value) parts.push(`from:${fromFlag.value.startsWith("@") ? fromFlag.value : `@${fromFlag.value}`}`);
+  if (fromFlag.value) parts.push(`from:${ensureAt(fromFlag.value)}`);
+  if (withFlag.value) parts.push(`with:${ensureAt(withFlag.value)}`);
   if (after.value) parts.push(`after:${toSearchDate(after.value, tz)}`);
   if (before.value) parts.push(`before:${toSearchDate(before.value, tz)}`);
   const fullQuery = parts.join(" ");
@@ -90,7 +93,7 @@ export async function searchCommand(args: string[]): Promise<string> {
     const ts = String(m.ts ?? "");
     const ch = m.channel as { id?: string; name?: string } | undefined;
     const row: Record<string, unknown> = {
-      channel: ch?.name ? `#${ch.name} (${ch.id})` : (ch?.id ?? "?"),
+      channel: formatMatchChannel(ch),
       author: m.username || (m.user ? `@${m.user}` : "(unknown)"),
       when: m.ts ? formatDateTime(tsToEpochMs(ts), tz) : "",
       text: truncate(formatText(typeof m.text === "string" ? m.text : "", users)),
@@ -120,6 +123,18 @@ async function channelNameFor(session: Awaited<ReturnType<typeof activeSession>>
     return ch.name || arg;
   }
   return normalizeChannelArg(arg);
+}
+
+/** Label a match's channel: `#name (id)` for channels/group DMs, `dm (id)` for a 1:1 (D…) id. */
+function formatMatchChannel(ch: { id?: string; name?: string } | undefined): string {
+  if (!ch?.id) return ch?.name ? `#${ch.name}` : "?";
+  if (ch.id.startsWith("D")) return `dm (${ch.id})`;
+  return ch.name ? `#${ch.name} (${ch.id})` : ch.id;
+}
+
+/** Ensure a user reference has a leading `@` for `from:`/`with:` modifiers. */
+function ensureAt(user: string): string {
+  return user.startsWith("@") ? user : `@${user}`;
 }
 
 /** Slack `after:`/`before:` take a YYYY-MM-DD date; accept a date passthrough or a relative span. */
