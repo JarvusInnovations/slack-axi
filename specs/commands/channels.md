@@ -48,11 +48,11 @@ the HQ `{name,id}` pair lifts directly. Total shown (`channels[50 of 1564]`).
 name. Revisit if a bulk unread source becomes available.
 
 ```
-workspace: Jarvus (T024GATE8)
+workspace: Acme (T0ABCDEF)
 channels[50 of 1564]{id,name,type}:
-  C0APJ9LA4KW,#bid-colorado-airmap,public
+  C0123ABCD,#general,public
   CHVBC6KLH,#some-private,private
-  C0125N74FU1,"alice, bob, chris",mpim
+  C0125N74FU1,"alice, bob, carol",mpim
 help[3]:
   Run `slack-axi read <channel>` to read one (threads inlined)
   Narrow with `--match <q>` or `--type public|private|mpim|im`

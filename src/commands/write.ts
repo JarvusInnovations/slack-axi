@@ -20,7 +20,7 @@ export const REACT_HELP = `usage: slack-axi react <channel> <ts> <:emoji:>
 Adds an emoji reaction to a message. Idempotent — re-reacting is a no-op.
 examples:
   slack-axi react #eng 1717589640123456 :eyes:
-  slack-axi react C09GHV2RUSJ 1717589640.123456 tada`;
+  slack-axi react C0123ABCD 1717589640.123456 tada`;
 
 export const DRAFT_HELP = `usage: slack-axi draft <channel> "<text>" [--reply <ts>]
        slack-axi draft send <draft-id>

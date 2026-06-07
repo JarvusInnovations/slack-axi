@@ -43,7 +43,7 @@ resolved-range + `complete` header. Plus `thread <channel> <ts>` and the statele
 ## Validation
 
 - [x] `read <channel>` defaults to last 7d, `--threads full`; header echoes resolved range with
-      explicit **year** and tz. *(verified on `#bid-rtd-analytics`.)*
+      explicit **year** and tz. *(verified on `#general`.)*
 - [x] A window spanning more messages than the API page size returns **all** of them (pagination to
       completion), in stable oldest→newest order regardless of API page order. *(cursor loop in
       `fetchWindow`; sorted ascending.)*
@@ -67,15 +67,15 @@ resolved-range + `complete` header. Plus `thread <channel> <ts>` and the statele
 
 - ~~Permalink construction~~ → **resolved**: used `chat.getPermalink` (robust; handles `thread_ts` and
   the workspace subdomain) rather than hand-constructing — materialized only on `cite`/`--cite`, so the
-  default `read` path makes zero permalink calls. Verified the URLs against Jarvus.
+  default `read` path makes zero permalink calls. Verified the URLs against Acme.
 - ~~Replies outside the window~~ → **resolved**: a thread is fetched whole when its parent is in-window;
   cost is fine. Reply rows show a full `YYYY-MM-DD HH:MM` so cross-day replies aren't mistaken for the
   parent's date.
 
 ## Notes
 
-Verified end-to-end against Jarvus on `#bid-rtd-analytics` — the exact RTD proposal-loss thread that
-was the documented near-miss (session `7f5bd203`). It now reads with year-stamped dates, inlined
+Verified end-to-end against Acme on `#general` — a proposal-loss thread that
+was the documented near-miss (an internal session). It now reads with year-stamped dates, inlined
 threads, completeness marker, and working permalinks. Message markup (`<@U>`/`<#C|name>`/`<url|label>`)
 is resolved for readability. Time logic is pure + unit-tested (`src/slack/time.ts`, the year-bug
 guard). Committed to trunk.

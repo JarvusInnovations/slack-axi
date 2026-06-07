@@ -38,7 +38,7 @@ the thing the agent would obviously need next and include it.
 
 ## Resolve identity for the agent
 
-Humans and HQ think in names (`#bid-foo`); the API needs ids (`C0…`); messages carry user ids, not
+Humans and HQ think in names (`#general`); the API needs ids (`C0…`); messages carry user ids, not
 names. The agent should never have to pre-resolve. Every channel argument accepts `#name`, bare
 `name`, or id interchangeably; user ids in output are resolved to display names. Resolution is
 cache-backed so it costs no visible round-trip.

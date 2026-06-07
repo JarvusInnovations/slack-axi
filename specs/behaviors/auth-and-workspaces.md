@@ -34,11 +34,10 @@ and `slack/client.ts` (WebClient per team).
 
 ### Multi-workspace
 
-- One app/token per workspace (team), stored at `workspaces/<TEAM_ID>/token.json` (mode 0600). Only the
-  Jarvus workspace is confirmed in current use, but the model supports many from day one (mirrors
-  gws-axi multi-account).
-- The active workspace is shown in every command's output header (`workspace: Jarvus (T01ABC) as
-  @chris`) so the agent always knows which one it's acting against.
+- One app/token per workspace (team), stored at `workspaces/<TEAM_ID>/token.json` (mode 0600). A single
+  workspace is the common case, but the model supports many from day one (mirrors gws-axi multi-account).
+- The active workspace is shown in every command's output header (`workspace: Acme (T01ABC) as
+  @you`) so the agent always knows which one it's acting against.
 - `auth use <team>` sets the default; `auth workspaces` lists all with the default marked.
 
 ### Write-protection

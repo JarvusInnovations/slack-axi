@@ -32,7 +32,7 @@ shown. **No `complete` marker** — search makes no completeness or strict-chron
 output says so implicitly by being a ranked match list.
 
 ```
-workspace: Jarvus (T01ABC)
+workspace: Acme (T01ABC)
 query: "token refresh" in:#eng
 matches[7 of 7]{channel,author,when,text,ts}:
   #eng (C0B),bob,2026-06-05 09:15,"did the token refresh land?",1717589700234567

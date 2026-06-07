@@ -27,7 +27,7 @@ Per [output-format.md](../behaviors/output-format.md). Returns one row per handl
 `slack_message` source shape, so the result is a direct field-copy into an HQ citation:
 
 ```
-workspace: Jarvus (T01ABC)
+workspace: Acme (T01ABC)
 channel: #eng (C0B)
 citations[2]{ts,permalink}:
   1717589640123456,https://jarvus.slack.com/archives/C0B/p1717589640123456

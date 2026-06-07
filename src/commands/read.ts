@@ -23,7 +23,7 @@ flags[8]:
   --cite           Add a permalink column (for bulk citation); else use ts + \`cite\`
   --full           Don't truncate message text
 examples:
-  slack-axi read #bid-rtd-analytics
+  slack-axi read #general
   slack-axi read #eng --from 2026-04-23 --to 2026-04-29
   slack-axi read #eng --since 24h --threads summary`;
 

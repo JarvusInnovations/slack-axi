@@ -19,7 +19,7 @@ rate-limit headroom. The first thing to run when something's off.
 Tiered checks, each `ok`/`warn`/`fail`:
 
 ```
-workspace: Jarvus (T01ABC) as @chris
+workspace: Acme (T01ABC) as @you
 checks[4]{check,status,detail}:
   token,ok,auth.test passed
   scopes,warn,missing search:read

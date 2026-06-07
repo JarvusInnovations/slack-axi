@@ -11,7 +11,7 @@ Reconstructs permalinks (and the HQ slack_message {channel, ts, permalink} shape
 message handles. Stateless — channel + ts is all it needs. ts may be dotless or dotted.
 examples:
   slack-axi cite #eng 1717589640123456
-  slack-axi cite C09GHV2RUSJ 1717589640123456 1717589700234567`;
+  slack-axi cite C0123ABCD 1717589640123456 1717589700234567`;
 
 export async function citeCommand(args: string[]): Promise<string> {
   if (args.includes("--help")) return CITE_HELP;
