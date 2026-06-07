@@ -23,6 +23,7 @@ specs/
     channels.md      # channels / dms / members / search channels
     read.md          # read <channel> + thread <channel> <ts>
     search.md        # search.messages
+    cite.md          # reconstruct permalinks / HQ sources from ts handles
     write.md         # react / draft / draft send
     setup-hooks.md   # ambient-context hook + skill install
   behaviors/         # cross-cutting rules that span commands

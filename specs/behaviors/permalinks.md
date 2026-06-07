@@ -1,46 +1,63 @@
-# Behavior: Permalinks and HQ citations
+# Behavior: Message handles, permalinks, and HQ citations
 
 ## Rule
 
-Every message slack-axi emits — in `read`, `thread`, and `search` output — carries a **ready-to-use
-permalink** and its **raw `ts`**. The agent never assembles a permalink by hand.
+Every message slack-axi emits carries a compact, stateless **handle** — its `ts` — which is all that's
+needed to reconstruct a permalink later. The full permalink is **not** rendered per row by default
+(it's ~60 chars of poorly-tokenizing URL the agent rarely cites); instead it is materialized on demand
+by `cite`, or inlined explicitly via `--cite` / `--fields permalink`. The agent never assembles a
+permalink by hand — slack-axi does the `p<ts_without_dot>` surgery — but it pays for permalinks only
+when it actually cites.
 
 ## Applies To
 
-`read`, `thread`, `search`. Any command that returns individual messages.
+`read`, `thread`, `search` (emit the `ts` handle); `cite` (reconstructs permalinks from handles).
 
 ## Details
 
-### Permalink
+### The handle is the `ts`
 
-- Each message row includes a `permalink` field: a complete, clickable URL of the form
-  `https://<workspace>.slack.com/archives/<channel_id>/p<ts_without_dot>` (and `?thread_ts=…` for a
-  reply). Prefer Slack's `chat.getPermalink` when cheap; otherwise construct it — the construction
-  (strip the `.` from `ts`) is slack-axi's job, never the agent's.
-- The workspace subdomain comes from the resolved team (e.g. `jarvus`).
+- A permalink is fully derivable from `(workspace, channel_id, ts)`. For a `read`/`thread`, the
+  workspace and channel are fixed and already in the output header, so the only per-message variable is
+  the `ts`. The `ts` is therefore the **minimal stateless citation key** — no shorter handle exists
+  without introducing state (a per-read ordinal like `#5` can't be resolved by a follow-up command in a
+  fresh shell).
+- `ts` is rendered dotless and compact (`1717589640123456`, ~16 chars / ~6–8 tokens) and is in the
+  **default** `read`/`search` schema. It is the citation key downstream commands consume.
 
-### Raw ts retained
+### Permalink, on demand
 
-- The raw `ts` (e.g. `1717589640.123456`) is always available — as a column with `--fields ts`, and
-  always in `thread`/detail views — because downstream citation formats need it.
+- `slack-axi cite <channel> <ts> [<ts> …]` reconstructs a complete permalink for each handle:
+  `https://<workspace>.slack.com/archives/<channel_id>/p<ts_without_dot>` (plus `?thread_ts=…` for a
+  reply). It is **stateless** — channel + ts is all it needs; no read-session state is retained.
+- `cite` also emits the full HQ `slack_message` source shape per message (see below), so producing a
+  citation is a single follow-up call over just the messages being cited.
+- Inline option: `read`/`search` accept `--cite` (alias for `--fields permalink`) to materialize
+  permalinks in-row up front — for the bulk-ingest case (e.g. an HQ sweep) where most messages will be
+  cited and the per-row cost is worth avoiding a second call.
+- `thread <channel> <ts>` is a focused detail view (one thread), so it **may** include permalinks
+  inline — the per-row cost is bounded and the intent is usually citation.
 
 ### HQ citation alignment (primary downstream consumer)
 
-The HQ journal records Slack references in two shapes; slack-axi output must drop into both with no
-string surgery:
+The HQ journal records Slack references in two shapes; slack-axi output drops into both with no string
+surgery by the agent:
 
 - **Channel reference** — HQ `slack_channels` is an array of `{name, id}`. slack-axi's channel output
   always pairs name and id (see [resolution-and-caching.md](resolution-and-caching.md)), so the agent
-  can lift `{name, id}` directly.
-- **Message source** — HQ `slack_message` source carries `channel` (id), `ts`, and `permalink`.
-  slack-axi emits all three per message, so building an HQ source is a field copy, not a computation.
-
-`read`/`search` support `--fields permalink,ts` (permalink is in the default `read` schema; `ts` is
-opt-in) so an agent ingesting into HQ gets exactly the citation fields it needs.
+  lifts `{name, id}` directly.
+- **Message source** — HQ `slack_message` source carries `channel` (id), `ts`, and `permalink`. The
+  `ts` is in every read row; `cite` (or `--cite`) supplies `channel` + `permalink`. So building an HQ
+  source is a field copy, not a computation.
 
 ## Principles
 
 **Inherited:**
 
 - [One call returns the complete answer](../principles.md#one-call-returns-the-complete-answer) —
-  the permalink is the canonical example: precompute what the agent would otherwise hand-assemble.
+  applied with a token-cost nuance: precompute the cheap **handle** (`ts`) on every row so no state is
+  needed, and reconstruct the expensive **permalink** on demand for only the messages cited. slack-axi
+  still owns the string surgery; it just defers the bytes until they're wanted.
+- [Token-frugal, content-first output](../principles.md#token-frugal-content-first-output) — permalinks
+  are opt-in precisely because they're the costliest field and the least-often used; see
+  [output-format.md](output-format.md).

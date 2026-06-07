@@ -21,18 +21,20 @@ day-granular modifiers.
 ## Output Rules
 
 Per [output-format.md](../behaviors/output-format.md) and [permalinks.md](../behaviors/permalinks.md).
-Default schema `{channel,author,when,text,permalink}`. `when` is a human Eastern datetime; `text` is
-truncated with `--full` escape. Total match count shown. **No `complete` marker** — search makes no
-completeness or strict-chronology guarantee, and output says so implicitly by being a ranked match list.
+Default schema `{channel,author,when,text,ts}` — `ts` is the stateless citation handle; permalinks come
+from `cite` or `--cite`, same as `read`. `when` is a human Eastern datetime; `text` is truncated with
+`--full` escape. Each row pairs `channel` name+id so `cite`/HQ have what they need. Total match count
+shown. **No `complete` marker** — search makes no completeness or strict-chronology guarantee, and
+output says so implicitly by being a ranked match list.
 
 ```
 workspace: Jarvus (T01ABC)
 query: "token refresh" in:#eng
-matches[7 of 7]{channel,author,when,text,permalink}:
-  #eng,bob,2026-06-05 09:15,"did the token refresh land?",https://jarvus.slack.com/archives/C0B/p171...
+matches[7 of 7]{channel,author,when,text,ts}:
+  #eng (C0B),bob,2026-06-05 09:15,"did the token refresh land?",1717589700234567
 help[2]:
   Run `slack-axi read #eng --from 2026-06-05 --to 2026-06-06` to read that window completely
-  Narrow with `--from @user` or `--after <date>`
+  Run `slack-axi cite #eng 1717589700234567` for a permalink to a match you cite
 ```
 
 - The first `help[]` suggestion steers a window-shaped intent back to `read` — the documented

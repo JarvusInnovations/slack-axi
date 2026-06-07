@@ -20,8 +20,9 @@ Every command. The shared `output/render.ts` + `output/schema.ts` modules implem
 ### Schemas
 
 - Lists default to the smallest useful schema (3–4 fields). Examples: channels →
-  `{id,name,type,unread}`; messages → `{time,author,text,permalink}`; search hits →
-  `{channel,author,when,text,permalink}`.
+  `{id,name,type,unread}`; messages → `{time,author,text,ts}`; search hits →
+  `{channel,author,when,text,ts}`. The `ts` is the compact citation handle, not the full permalink —
+  permalinks are opt-in (`--cite`) or on-demand (`cite`); see [permalinks.md](permalinks.md).
 - A `--fields <a,b,c>` flag adds columns. Unknown field names are silently ignored (lenient), per AXI
   convention. Known extras per command are listed in that command's spec.
 - Long-form content (full message bodies, channel purpose/topic) belongs in detail views, not list

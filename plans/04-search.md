@@ -28,9 +28,11 @@ modifier translation, permalinks on matches, and `help[]` that steers window-sha
 
 ## Validation
 
-- [ ] `search "<q>"` returns ranked matches with `{channel,author,when,text,permalink}`; total shown.
+- [ ] `search "<q>"` returns ranked matches with `{channel,author,when,text,ts}` (channel name+id);
+      total shown.
 - [ ] `--in`, `--from`, `--after`, `--before` translate to the correct Slack modifiers and combine.
-- [ ] Each match has a working permalink; `--full` returns untruncated text.
+- [ ] Matches carry the `ts` handle; `--cite` inlines permalinks and `cite` resolves them on demand;
+      `--full` returns untruncated text.
 - [ ] Zero matches → definitive empty state suggesting broader terms or `read`.
 - [ ] First `help[]` suggestion offers the equivalent `read <channel> --from --to` for a window sweep.
 - [ ] Requires `search:read`; absent scope → `SCOPE_MISSING` with the exact remediation.
