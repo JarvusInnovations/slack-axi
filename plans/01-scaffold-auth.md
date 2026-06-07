@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 depends: []
 specs:
   - specs/architecture.md
@@ -43,21 +43,17 @@ login --token` and `doctor`. Also `auth workspaces`/`use`/`revoke`.
 ## Validation
 
 - [x] `slack-axi` with no token resolvable shows the setup-oriented home (no crash), exit 0.
-- [ ] `slack-axi auth login --token <valid xoxp>` stores `workspaces/<team>/token.json` at mode 0600,
-      derives team/user/scopes, marks it default if first. *(code complete; needs a real xoxp token to
-      verify against Slack — pending user's Jarvus token.)*
+- [x] `slack-axi auth login --token <valid xoxp>` stores `workspaces/<team>/token.json` at mode 0600,
+      derives team/user/scopes, marks it default if first. *(verified: Jarvus T024GATE8 stored, default.)*
 - [x] `slack-axi auth login --token <invalid>` returns `AUTH_INVALID` (translated, no raw payload),
       exit 1. *(verified against live auth.test.)*
 - [x] `SLACK_AXI_TOKEN` env overrides stored token; `SLACK_AXI_TEAM` selects workspace.
-- [~] `slack-axi doctor` reports token ok, scope coverage (names any missing scope), read probe;
-      exit 1 only on a `fail`-tier check, exit 0 with warnings. *(token-check + fail-exit verified with
-      an invalid token; scope/read-probe rows need a valid token.)*
+- [x] `slack-axi doctor` reports token ok, scope coverage (names any missing scope), read probe;
+      exit 1 only on a `fail`-tier check, exit 0 with warnings. *(verified all-green against Jarvus:
+      token ok, all 13 scopes granted, users.conversations reachable.)*
 - [x] `auth workspaces` lists stored teams with default marked; definitive empty state when none.
 - [x] `auth use <team>` is idempotent (already-default = no-op, exit 0).
 - [x] Output is valid TOON; errors render on stdout with a fixing suggestion.
-
-Remaining checks all require a real `xoxp-` token (`auth login` against the Jarvus workspace), then
-`doctor` confirms scope coverage + the read probe. Everything testable without a token is verified.
 
 ## Risks / unknowns
 
@@ -72,8 +68,15 @@ Remaining checks all require a real `xoxp-` token (`auth login` against the Jarv
 
 ## Notes
 
-(populated at closeout)
+Verified end-to-end against the real Jarvus workspace (T024GATE8, user `chris`): `auth login` stored
+the token, `doctor` is all-green with all 13 scopes granted. Slack issued every requested user scope on
+first install. No PR — committed to trunk (commits `0b23d0d`, `7d58ac2`). `slack-axi` is `npm link`ed
+to the repo and on PATH via the asdf node shim.
+
+Key SDK findings recorded for downstream plans: `axi-sdk-js` re-exports only `cli`/`errors`/`hooks`
+(output/home-header helpers are internal; the SDK auto-prepends the home header); team resolution is
+per-command (`resolveActiveToken`), not via `resolveContext`.
 
 ## Follow-ups
 
-(populated at closeout)
+- None. (Granted-scope discovery and context-resolution unknowns were resolved in-plan; see Risks.)

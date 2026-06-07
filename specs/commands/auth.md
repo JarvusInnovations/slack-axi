@@ -27,7 +27,9 @@ Two steps:
    the User OAuth Token, and run `slack-axi auth login --token xoxp-…`. A stored workspace token marks
    this step complete; it is never manually confirmed.
 
-When both are done, setup reports `complete` and points at `doctor`.
+A stored token is proof the app exists and is installed, so it **subsumes the `app_created`
+waypoint**: once any workspace token is stored, setup reports `complete` and points at `doctor` —
+even if the user went straight to `auth login` without confirming `app_created`.
 
 Flags: `--name <name>` (manifest app display name; default `slack-axi`), `--confirm-step app_created`,
 `--show-manifest` (echo the YAML inline), `--reset` (clear state, e.g. to onboard another workspace).

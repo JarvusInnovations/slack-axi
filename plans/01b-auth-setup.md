@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 depends: [01-scaffold-auth]
 specs:
   - specs/commands/auth.md
@@ -36,21 +36,23 @@ manual, `token_stored` derived from `auth login`).
 - [x] `--confirm-step app_created` advances to `token_stored`; re-running stays there.
 - [x] `--name` customizes the manifest app name; `--show-manifest` echoes YAML; `--reset` clears state.
 - [x] Unknown `--confirm-step` value → structured `USAGE` error.
-- [ ] End-to-end dogfood: paste manifest → create app → install → `auth login` with the real token →
-      `setup` reports `complete` → `doctor` passes. *(pending the user's Jarvus app/token.)*
+- [x] End-to-end dogfood: paste manifest → create app → install → `auth login` with the real token →
+      `setup` reports `complete` → `doctor` passes. *(done against Jarvus.)*
 
 ## Risks / unknowns
 
-- Slack "Create from manifest" is a paste flow; no reliable GET-param prefill, so `setup.html` provides
-  a copy box rather than a deep-linked prefill. Confirm the manifest imports cleanly in the real UI
-  during dogfood.
-- Installing a user-token-only app to its own workspace should need no redirect URL; verify during
-  dogfood (add a placeholder redirect to the manifest if Slack requires one).
+- ~~Manifest import~~ → **resolved**: the generated manifest imported cleanly in the real "Create from
+  manifest" UI; all 13 scopes were granted on install.
+- ~~Redirect URL for user-token install~~ → **resolved**: no redirect URL was needed to Install to
+  Workspace; the manifest as generated is sufficient.
 
 ## Notes
 
-(populated at closeout)
+Dogfooded successfully against Jarvus. One UX fix surfaced during dogfood and was folded in: the user
+went straight from app creation to `auth login` (skipping `--confirm-step app_created`), so `setup`
+wrongly still showed `next_step: app_created`. Fixed `setupProgress` so a stored token subsumes the
+`app_created` waypoint and reports `complete` (spec note added to auth.md). Committed to trunk.
 
 ## Follow-ups
 
-(populated at closeout)
+- None.

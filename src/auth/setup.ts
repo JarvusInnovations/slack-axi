@@ -75,13 +75,19 @@ export interface SetupProgress {
   next?: "app_created" | "token_stored";
 }
 
-/** token_stored is derived from a successful `auth login` (a stored workspace), never confirmed manually. */
+/**
+ * token_stored is derived from a successful `auth login` (a stored workspace), never confirmed
+ * manually. A stored token is proof the app was created and installed, so it subsumes the
+ * app_created waypoint: once a token exists, setup is complete regardless of the manual confirm.
+ */
 export function setupProgress(): SetupProgress {
   const appCreated = readSetupState().steps.app_created.done;
   const tokenStored = listWorkspaceIds().length > 0;
-  const done = (appCreated ? 1 : 0) + (tokenStored ? 1 : 0);
-  const next = !appCreated ? "app_created" : !tokenStored ? "token_stored" : undefined;
-  return { appCreated, tokenStored, done, total: 2, complete: done === 2, next };
+  if (tokenStored) {
+    return { appCreated: true, tokenStored, done: 2, total: 2, complete: true, next: undefined };
+  }
+  const done = appCreated ? 1 : 0;
+  return { appCreated, tokenStored, done, total: 2, complete: false, next: appCreated ? "token_stored" : "app_created" };
 }
 
 /** Build a Slack app manifest (YAML) pre-filled with the user-token scopes slack-axi needs. */
