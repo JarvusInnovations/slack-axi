@@ -1,5 +1,5 @@
 import type { Session } from "../session.js";
-import { epochMsToTs } from "./time.js";
+import { epochMsToTs, tsExclusiveBefore } from "./time.js";
 
 /** A normalized Slack message (top-level or reply). */
 export interface Msg {
@@ -33,17 +33,19 @@ function toMsg(raw: Record<string, unknown>): Msg {
 const byTsAsc = (a: Msg, b: Msg) => Number.parseFloat(a.ts) - Number.parseFloat(b.ts);
 
 /**
- * All top-level messages in [oldestMs, latestMs], paginated to completion, returned oldest→newest
- * regardless of the API's native page order. See specs/behaviors/time-and-completeness.md.
+ * All top-level messages in the half-open window `[oldestMs, endMs)`, paginated to completion, returned
+ * oldest→newest regardless of the API's native page order. The upper bound is exclusive (`latest` is
+ * one microsecond before `endMs`) so adjacent windows/batches tile with no gap and no overlap.
+ * See specs/behaviors/time-and-completeness.md.
  */
-export async function fetchWindow(session: Session, channelId: string, oldestMs: number, latestMs: number): Promise<Msg[]> {
+export async function fetchWindow(session: Session, channelId: string, oldestMs: number, endMs: number): Promise<Msg[]> {
   const messages: Msg[] = [];
   let cursor: string | undefined;
   do {
     const res = await session.client.conversations.history({
       channel: channelId,
       oldest: epochMsToTs(oldestMs),
-      latest: epochMsToTs(latestMs),
+      latest: tsExclusiveBefore(endMs),
       inclusive: true,
       limit: 200,
       ...(cursor ? { cursor } : {}),

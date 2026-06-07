@@ -8,10 +8,25 @@ channels; the scope and a call-count guard keep that fan-out bounded.
 ## Invocation
 
 ```
-slack-axi catchup [--since 1d | --from <when> --to <when>] [--tz <zone>]
+slack-axi catchup [--since 1d | --from <when> --to <when>] [--tz <zone>] [--every <span>]
                   [--type public,private,mpim,im] [--match <q>] [--in <c1,c2,...>]
                   [--limit-per <n>] [--max-channels <n>] [--exclude-bots] [--cite]
 ```
+
+## Plan mode (`--every <span>`)
+
+For a big catch-up (a month+), `--every` turns catchup into a **planner**: it emits the ordered,
+year-stamped batch windows and the per-batch command — and fetches **nothing** (no
+`conversations.history` calls). The agent then runs each batch in order (`catchup --from <from> --to
+<to> <scope>`), processing one window at a time so per-batch output stays bounded and the work is
+checkpointable. The emitted per-batch command echoes the scope flags (`--type`/`--match`/`--in`,
+`--exclude-bots`) so each batch keeps the same scope.
+
+Batches tile the window as half-open `[from, to)` ranges that share a boundary instant: **no gap, no
+overlap** (see [time-and-completeness.md](../behaviors/time-and-completeness.md)). Displayed as
+non-overlapping inclusive date ranges (batch 1 `…→ 05-07`, batch 2 `05-08 →…`); the final batch is
+clipped to `--to`. Batches advance by a fixed span from the window start, so a DST transition shifts a
+boundary's wall-clock by an hour — coverage stays exact; only a displayed date may nudge.
 
 ## Data Requirements
 

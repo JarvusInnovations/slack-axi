@@ -43,7 +43,7 @@ export async function readCommand(args: string[]): Promise<string> {
   const channel = await resolveChannel(session, f.channel);
   const window = resolveWindow({ since: f.since, from: f.from, to: f.to, tz: f.tz }, Date.now());
 
-  let parents = await fetchWindow(session, channel.id, window.oldestMs, window.latestMs);
+  let parents = await fetchWindow(session, channel.id, window.oldestMs, window.endMs);
   let botFiltered = 0;
   if (f.excludeBots) {
     const before = parents.length;
@@ -59,7 +59,7 @@ export async function readCommand(args: string[]): Promise<string> {
   };
 
   if (parents.length === 0) {
-    header.messages = `0 messages in ${label} between ${formatDate(window.oldestMs, window.tz)} and ${formatDate(window.latestMs, window.tz)} (${window.tz})`;
+    header.messages = `0 messages in ${label} between ${formatDate(window.oldestMs, window.tz)} and ${formatDate(window.endMs - 1, window.tz)} (${window.tz})`;
     return joinBlocks(
       encodeObject(header),
       renderHelp(["Widen the window with `--since 30d` or `--from <date>`"]),

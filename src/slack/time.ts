@@ -12,18 +12,19 @@ const DEFAULT_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 export interface ResolvedWindow {
   /** Inclusive lower bound, epoch ms. */
   oldestMs: number;
-  /** Inclusive upper bound, epoch ms. */
-  latestMs: number;
+  /** **Exclusive** upper bound, epoch ms — the window is the half-open `[oldestMs, endMs)`. */
+  endMs: number;
   tz: string;
 }
 
-/** Parse a relative span like `90m`, `24h`, `7d` into milliseconds; undefined if it doesn't match. */
+/** Parse a relative span like `90m`, `24h`, `7d`, `2w` into milliseconds; undefined if it doesn't match. */
 export function parseSpanMs(input: string): number | undefined {
-  const m = /^(\d+)(m|h|d)$/.exec(input.trim());
+  const m = /^(\d+)(m|h|d|w)$/.exec(input.trim());
   if (!m) return undefined;
   const n = Number.parseInt(m[1], 10);
   const unit = m[2];
-  const factor = unit === "m" ? 60_000 : unit === "h" ? 3_600_000 : 86_400_000;
+  const factor =
+    unit === "m" ? 60_000 : unit === "h" ? 3_600_000 : unit === "d" ? 86_400_000 : 7 * 86_400_000;
   return n * factor;
 }
 
@@ -84,14 +85,17 @@ function parseWhen(when: string, tz: string, boundary: "start" | "end", now: num
   const dateMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(when.trim());
   if (dateMatch) {
     const [, y, mo, d] = dateMatch.map(Number);
+    // start → that day's midnight (inclusive); end → the NEXT day's midnight (exclusive upper bound),
+    // so "--to 2026-06-07" covers all of June 7 and tiles exactly with a batch starting June 8.
     return boundary === "start"
       ? zonedToEpochMs(y, mo, d, 0, 0, 0, 0, tz)
-      : zonedToEpochMs(y, mo, d, 23, 59, 59, 999, tz);
+      : zonedToEpochMs(y, mo, d + 1, 0, 0, 0, 0, tz);
   }
 
   const dtMatch = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?$/.exec(when.trim());
   if (dtMatch) {
     const [, y, mo, d, h, mi, s] = dtMatch.map((v) => Number(v ?? 0));
+    // A datetime bound is an exact instant: inclusive as a start, exclusive as an end.
     return zonedToEpochMs(y, mo, d, h, mi, Number.isFinite(s) ? s : 0, 0, tz);
   }
 
@@ -107,23 +111,37 @@ export function resolveWindow(
 ): ResolvedWindow {
   const tz = opts.tz ?? DEFAULT_TZ;
 
+  // endMs is exclusive; `now + 1` ms keeps "now" itself inside the window.
   if (opts.since !== undefined) {
     const span = parseSpanMs(opts.since);
     if (span === undefined) {
-      throw new AxiError(`Invalid --since '${opts.since}'`, "USAGE", ["Use a span like 7d, 24h, or 90m"]);
+      throw new AxiError(`Invalid --since '${opts.since}'`, "USAGE", ["Use a span like 7d, 24h, 90m, or 2w"]);
     }
-    return { oldestMs: now - span, latestMs: now, tz };
+    return { oldestMs: now - span, endMs: now + 1, tz };
   }
 
-  const latestMs = opts.to !== undefined ? parseWhen(opts.to, tz, "end", now) : now;
+  const endMs = opts.to !== undefined ? parseWhen(opts.to, tz, "end", now) : now + 1;
   const oldestMs = opts.from !== undefined ? parseWhen(opts.from, tz, "start", now) : now - DEFAULT_WINDOW_MS;
 
-  if (oldestMs > latestMs) {
-    throw new AxiError("Resolved window is empty (--from is after --to)", "USAGE", [
+  if (oldestMs >= endMs) {
+    throw new AxiError("Resolved window is empty (--from is at or after --to)", "USAGE", [
       "Check the dates; --from must be earlier than --to",
     ]);
   }
-  return { oldestMs, latestMs, tz };
+  return { oldestMs, endMs, tz };
+}
+
+/**
+ * Tile a window into half-open `[start, end)` batches of `everyMs`. Adjacent batches share a boundary
+ * instant (one batch's `endMs` == the next's `startMs`), so the set has no gap and no overlap; the
+ * final batch's `endMs` is exactly the window's end. See specs/commands/catchup.md.
+ */
+export function batchWindows(oldestMs: number, endMs: number, everyMs: number): Array<{ startMs: number; endMs: number }> {
+  const batches: Array<{ startMs: number; endMs: number }> = [];
+  for (let start = oldestMs; start < endMs; start += everyMs) {
+    batches.push({ startMs: start, endMs: Math.min(start + everyMs, endMs) });
+  }
+  return batches;
 }
 
 function partsInTz(epochMs: number, tz: string): Record<string, string> {
@@ -157,9 +175,10 @@ export function formatDateTime(epochMs: number, tz: string): string {
   return `${formatDate(epochMs, tz)} ${formatTime(epochMs, tz)}`;
 }
 
-/** The resolved-range header value, e.g. `2026-05-30 09:14 → 2026-06-06 09:14 (America/New_York)`. */
+/** The resolved-range header value, e.g. `2026-05-30 09:14 → 2026-06-06 09:14 (America/New_York)`.
+ *  endMs is exclusive, so the displayed upper bound is `endMs − 1` (the last instant actually covered). */
 export function formatRange(w: ResolvedWindow): string {
-  return `${formatDateTime(w.oldestMs, w.tz)} → ${formatDateTime(w.latestMs, w.tz)} (${w.tz})`;
+  return `${formatDateTime(w.oldestMs, w.tz)} → ${formatDateTime(w.endMs - 1, w.tz)} (${w.tz})`;
 }
 
 /** Slack ts (`1717589640.123456`) → epoch ms. */
@@ -167,7 +186,18 @@ export function tsToEpochMs(ts: string): number {
   return Math.round(Number.parseFloat(ts) * 1000);
 }
 
-/** epoch ms → Slack ts string (seconds with microseconds). */
+function microsToTs(micros: number): string {
+  const seconds = Math.floor(micros / 1_000_000);
+  const frac = micros - seconds * 1_000_000;
+  return `${seconds}.${String(frac).padStart(6, "0")}`;
+}
+
+/** epoch ms → Slack ts string (seconds.microseconds), exact integer math. */
 export function epochMsToTs(epochMs: number): string {
-  return (epochMs / 1000).toFixed(6);
+  return microsToTs(epochMs * 1000);
+}
+
+/** Slack ts one microsecond *before* an instant — the inclusive `latest` for a half-open `[…, endMs)`. */
+export function tsExclusiveBefore(endMs: number): string {
+  return microsToTs(endMs * 1000 - 1);
 }

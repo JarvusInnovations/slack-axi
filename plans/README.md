@@ -25,3 +25,4 @@ here. Query it on demand:
 | `05-writes` | `react`, `draft`, `draft send` | 02 |
 | `06-ambient-setup` | `setup hooks` + installable skill (ambient context) | 02 |
 | `07-catchup` | scoped multi-channel sweep ("everything since yesterday") | 03 |
+| `07b-catchup-batching` | `catchup --every` batch planning + half-open window correctness | 07 |

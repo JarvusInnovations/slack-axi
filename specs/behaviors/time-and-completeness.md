@@ -16,15 +16,23 @@ same human time flags for its `after:`/`before:` modifiers but makes no complete
 
 ### Time input
 
-- `--since <span>` — relative span ending now: `90m`, `24h`, `7d`, `30d`. Spans: `m` minutes, `h`
-  hours, `d` days.
+- `--since <span>` — relative span ending now: `90m`, `24h`, `7d`, `2w`. Spans: `m` minutes, `h`
+  hours, `d` days, `w` weeks.
 - `--from <when>` / `--to <when>` — explicit bounds. Accept a date (`2026-04-23`), a datetime
   (`2026-04-23T14:00`), or a relative span (`7d` = 7 days ago). `--to` defaults to now.
 - Default window when none given: **last 7 days**.
-- Resolution is in **America/New_York (Eastern)** unless `--tz <zone>` is given. Dates without a time
-  bind to start/end of day in that zone.
-- Internally converted to Slack `oldest`/`latest` (epoch seconds, inclusive `oldest`, exclusive
-  `latest`) and passed to `conversations.history` / `conversations.replies`.
+- Resolution is in **America/New_York (Eastern)** unless `--tz <zone>` is given. A `--from` date binds
+  to **start of day**; a `--to` date binds to the **next day's midnight** (so the named end day is fully
+  covered).
+
+### Inclusion semantics (half-open windows)
+
+A window is the half-open interval **`[oldestMs, endMs)`** — inclusive lower bound, exclusive upper
+bound. Mapped to Slack as `oldest = oldestMs`, `latest = endMs − 1µs`, `inclusive: true`. Because Slack
+`ts` is microsecond-resolution, subtracting one tick makes the upper bound exactly exclusive: a message
+whose `ts` equals a boundary instant lands in exactly one window. This is what lets adjacent reads and
+`catchup --every` batches **tile with no gap and no overlap** — and it also closes a latent single-read
+drop (the old millisecond-granular end-of-day excluded the final sub-millisecond of a day).
 
 ### Resolved-range echo (year-correctness guard)
 

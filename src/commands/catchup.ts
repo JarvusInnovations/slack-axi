@@ -7,16 +7,17 @@ import { formatText, userName } from "../slack/format.js";
 import { getPermalink } from "../slack/permalink.js";
 import { channelLabel, resolveChannel } from "../slack/resolve.js";
 import { fetchWindow, isBot, type Msg } from "../slack/threads.js";
-import { formatDateTime, formatRange, resolveWindow, tsToEpochMs } from "../slack/time.js";
+import { batchWindows, formatDate, formatDateTime, formatRange, parseSpanMs, resolveWindow, tsToEpochMs } from "../slack/time.js";
 import { handle } from "../slack/ts.js";
 
 export const CATCHUP_HELP = `usage: slack-axi catchup [flags]
 Sweeps a SCOPED set of channels over a time window and returns everything posted — a multi-channel read.
 Slack has no cross-conversation history endpoint, so this fans out per channel; scope keeps it bounded.
-flags[9]:
+flags[10]:
   --since <span>      Window ending now: 1d, 12h, 90m (default: 1d)
   --from <when>       Window start (date / datetime / span); --to end (default now)
   --tz <zone>         Timezone (default America/New_York)
+  --every <span>      PLAN MODE: emit batch windows (e.g. 1w) instead of fetching — for big catch-ups
   --type <a,b>        Conversation types to sweep (default: public,private)
   --match <q>         Only channels whose name contains <q>
   --in <c1,c2,...>    Explicit channel list (#name/name/id), overrides --type/--match
@@ -28,6 +29,7 @@ Threads are not inlined here (kept cheap across many channels); a [+N replies] n
 expand one with \`read <channel>\` or \`thread <channel> <ts>\`.
 examples:
   slack-axi catchup --since 1d --match bid
+  slack-axi catchup --from 2026-05-01 --to 2026-06-07 --every 1w --match bid   (plan a month, weekly)
   slack-axi catchup --from 2026-06-06T09:00 --in bid-rtd-analytics,transit-lake`;
 
 const DEFAULT_MAX_CHANNELS = 40;
@@ -41,7 +43,8 @@ export async function catchupCommand(args: string[]): Promise<string> {
   const from = takeFlag(since.rest, "--from");
   const to = takeFlag(from.rest, "--to");
   const tz = takeFlag(to.rest, "--tz");
-  const type = takeFlag(tz.rest, "--type");
+  const every = takeFlag(tz.rest, "--every");
+  const type = takeFlag(every.rest, "--type");
   const match = takeFlag(type.rest, "--match");
   const inList = takeFlag(match.rest, "--in");
   const limitPer = takeFlag(inList.rest, "--limit-per");
@@ -58,6 +61,31 @@ export async function catchupCommand(args: string[]): Promise<string> {
     { since: since.value ?? (from.value || to.value ? undefined : "1d"), from: from.value, to: to.value, tz: tz.value },
     Date.now(),
   );
+
+  // Plan mode: --every emits the batch windows only (no fetch), for the agent to iterate one at a time.
+  if (every.value !== undefined) {
+    const everyMs = parseSpanMs(every.value);
+    if (everyMs === undefined) {
+      throw new AxiError(`Invalid --every '${every.value}'`, "USAGE", ["Use a span like 1w, 3d, or 12h"]);
+    }
+    const batches = batchWindows(window.oldestMs, window.endMs, everyMs);
+    const scope = scopeSuffix({ type: type.value, match: match.value, in: inList.value, excludeBots: excludeBots.present });
+    const rows = batches.map((b, i) => ({
+      n: i + 1,
+      from: formatDate(b.startMs, window.tz),
+      to: formatDate(b.endMs - 1, window.tz),
+    }));
+    return joinBlocks(
+      encodeObject({
+        "catchup-plan": `${batches.length} batches of ${every.value} over ${formatRange(window)}`,
+      }),
+      renderList("batches", rows),
+      renderHelp([
+        `Run each in order: slack-axi catchup --from <from> --to <to>${scope ? ` ${scope}` : ""}`,
+        "Process one batch (read/summarize/ingest), then the next — adjacent batches tile exactly (no gap, no overlap)",
+      ]),
+    );
+  }
 
   const pool = await resolveScope(session, { inList: inList.value, type: type.value, match: match.value });
   if (pool.length === 0) {
@@ -84,7 +112,7 @@ export async function catchupCommand(args: string[]): Promise<string> {
   // Sequential sweep to respect Slack's tightened conversations.history rate limits.
   const active: Array<{ channel: ChannelMeta; label: string; total: number; rows: Array<Record<string, unknown>> }> = [];
   for (const channel of pool) {
-    let msgs = await fetchWindow(session, channel.id, window.oldestMs, window.latestMs);
+    let msgs = await fetchWindow(session, channel.id, window.oldestMs, window.endMs);
     if (excludeBots.present) msgs = msgs.filter((m) => !isBot(m));
     if (msgs.length === 0) continue;
     const total = msgs.length;
@@ -153,6 +181,18 @@ async function buildRow(
 
 function ws(session: Session): string {
   return `${session.teamName ?? session.teamId} (${session.teamId})`;
+}
+
+/** Rebuild the scope flags for the per-batch command emitted by plan mode. */
+function scopeSuffix(opts: { type?: string; match?: string; in?: string; excludeBots?: boolean }): string {
+  const parts: string[] = [];
+  if (opts.in) parts.push(`--in ${opts.in}`);
+  else {
+    if (opts.type) parts.push(`--type ${opts.type}`);
+    if (opts.match) parts.push(`--match ${opts.match}`);
+  }
+  if (opts.excludeBots) parts.push("--exclude-bots");
+  return parts.join(" ");
 }
 
 function posInt(value: string | undefined, fallback: number): number {
