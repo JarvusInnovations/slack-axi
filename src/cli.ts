@@ -16,20 +16,20 @@ import { homeCommand } from "./commands/home.js";
 import { readCommand, READ_HELP, threadCommand, THREAD_HELP } from "./commands/read.js";
 import { searchCommand, SEARCH_HELP } from "./commands/search.js";
 import { setupCommand, SETUP_HELP } from "./commands/setup.js";
+import { draftCommand, DRAFT_HELP, reactCommand, REACT_HELP } from "./commands/write.js";
 import { DESCRIPTION, readVersion } from "./meta.js";
 
 export const TOP_HELP = `usage: slack-axi [command] [args] [flags]
-commands[12]:
-  (none)=home, auth, doctor, channels, dms, members, read, thread, cite, search, catchup, setup
+commands[14]:
+  (none)=home, auth, doctor, channels, dms, members, read, thread, cite, search, catchup, react, draft, setup
 flags[2]:
   --team <id> (per-command), --help, -v/--version
 examples:
-  slack-axi
   slack-axi channels --match bid
   slack-axi read #bid-rtd-analytics --since 7d
-  slack-axi catchup --since 1d --match bid
-  slack-axi thread <channel> <ts>
-  slack-axi cite <channel> <ts>`;
+  slack-axi catchup --from 2026-05-01 --to 2026-06-07 --every 1w --match bid
+  slack-axi react #eng <ts> :eyes:
+  slack-axi draft #eng "message"   (then: slack-axi draft send <id>)`;
 
 const COMMAND_HELP: Record<string, string> = {
   auth: AUTH_HELP,
@@ -43,6 +43,8 @@ const COMMAND_HELP: Record<string, string> = {
   cite: CITE_HELP,
   search: SEARCH_HELP,
   catchup: CATCHUP_HELP,
+  react: REACT_HELP,
+  draft: DRAFT_HELP,
   setup: SETUP_HELP,
 };
 
@@ -64,6 +66,8 @@ export async function main(): Promise<void> {
       cite: (args) => citeCommand(args),
       search: (args) => searchCommand(args),
       catchup: (args) => catchupCommand(args),
+      react: (args) => reactCommand(args),
+      draft: (args) => draftCommand(args),
       setup: (args) => setupCommand(args),
     },
     getCommandHelp: (command) => COMMAND_HELP[command],

@@ -1,5 +1,5 @@
 ---
-status: planned
+status: done
 depends: [02-discovery]
 specs:
   - specs/commands/write.md
@@ -29,26 +29,35 @@ unconfirmed direct posting. Honors multi-workspace write-protection.
 
 ## Validation
 
-- [ ] `react <channel> <ts> :emoji:` adds the reaction; re-running is a no-op at exit 0.
-- [ ] `draft <channel> "<text>"` creates a stored draft and returns it in full **without sending**;
-      help[] offers `draft send <id>`.
-- [ ] `draft <channel> --reply <ts> "<text>"` records the thread target.
-- [ ] `draft send <id>` posts via `chat.postMessage`, returns the posted permalink + ts; re-running
-      acknowledges the prior send (no duplicate post), exit 0.
-- [ ] `draft list` shows pending drafts; `draft discard <id>` removes one.
-- [ ] With 2+ workspaces stored, a mutation without `--team`/`SLACK_AXI_TEAM` errors (write-protection),
-      while reads still fall back to default.
+- [~] `react <channel> <ts> :emoji:` adds the reaction; re-running (`already_reacted`) is a no-op at
+      exit 0. *(code complete + arg validation verified; live reaction not fired — outward-facing,
+      awaiting a user-chosen target.)*
+- [x] `draft <channel> "<text>"` creates a stored draft and returns it in full **without sending**;
+      help[] offers `draft send <id>`. *(verified.)*
+- [x] `draft <channel> --reply <ts> "<text>"` records the thread target. *(verified: reply_to stored.)*
+- [~] `draft send <id>` posts via `chat.postMessage`, returns permalink + ts; re-running acknowledges
+      the prior send (no duplicate), exit 0. *(code complete; not-found path verified; live post not
+      fired — outward-facing, awaiting go-ahead. Idempotency via the stored `sent` marker.)*
+- [x] `draft list` shows pending drafts; `draft discard <id>` removes one (idempotent). *(verified.)*
+- [~] With 2+ workspaces, a mutation requires an explicit team. *(only one workspace is authed, so not
+      triggerable; enforced via `activeSession({mutation:true})` → `resolveActiveToken`. `draft send`
+      passes the draft's own `team`, satisfying it.)*
 
 ## Risks / unknowns
 
-- Draft id scheme + storage location (per-workspace file vs. single store) — pick during impl; ensure
-  ids are stable and human-quotable.
-- `--allow-send` collapse is explicitly out of v1; don't build it, just leave the design note.
+- ~~Draft id scheme + storage~~ → resolved: `d_<8-hex>` ids; global `~/.config/slack-axi/drafts/<id>.json`
+  with a `team` field (so send targets the right workspace). Recorded in `write.md`.
+- `--allow-send` collapse remains explicitly out of v1 (documented in `write.md`, not built).
 
 ## Notes
 
-(populated at closeout)
+The non-mutating surface (draft create/list/discard, `--reply`, error paths, arg validation) is verified
+on Jarvus. `react` and `draft send` are code-complete but were **not fired at the live workspace** —
+they're outward-facing (a visible reaction / a posted message), so live verification awaits a
+user-chosen safe target (e.g. a self-DM). `draft send` marks the draft `sent` for idempotency rather
+than deleting it. Committed to trunk.
 
 ## Follow-ups
 
-(populated at closeout)
+- **Live-fire verification (user-gated):** confirm `react` and `draft send` against a target the user
+  picks (self-DM or a scratch channel) — the only outstanding check, deliberately not auto-run.

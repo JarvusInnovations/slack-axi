@@ -67,6 +67,50 @@ export function cacheUsersPath(teamId: string): string {
   return join(configDir(), "cache", teamId, "users.json");
 }
 
+/** A locally-stored message draft (prepare→approve; never auto-sent). */
+export interface Draft {
+  id: string;
+  team: string;
+  channel_id: string;
+  channel: string;
+  reply_to?: string;
+  text: string;
+  created_at: string;
+  sent?: { ts: string; permalink: string; at: string };
+}
+
+function draftsDir(): string {
+  return join(configDir(), "drafts");
+}
+
+function draftPath(id: string): string {
+  return join(draftsDir(), `${id}.json`);
+}
+
+export function getDraft(id: string): Draft | undefined {
+  return readJson<Draft>(draftPath(id));
+}
+
+export function writeDraft(draft: Draft): void {
+  writeJson(draftPath(draft.id), draft);
+}
+
+export function removeDraft(id: string): boolean {
+  if (!existsSync(draftPath(id))) return false;
+  rmSync(draftPath(id), { force: true });
+  return true;
+}
+
+export function listDrafts(): Draft[] {
+  const dir = draftsDir();
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir)
+    .filter((f) => f.endsWith(".json"))
+    .map((f) => readJson<Draft>(join(dir, f)))
+    .filter((d): d is Draft => d !== undefined)
+    .sort((a, b) => a.created_at.localeCompare(b.created_at));
+}
+
 function readJson<T>(path: string): T | undefined {
   if (!existsSync(path)) return undefined;
   try {

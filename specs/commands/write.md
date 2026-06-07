@@ -37,7 +37,10 @@ multi-workspace write-protection (see
 
 ### `draft list` / `draft discard <id>`
 
-List pending drafts; discard one. Drafts are stored locally under the workspace dir.
+List pending drafts; discard one. Drafts are stored locally as `~/.config/slack-axi/drafts/<id>.json`
+(each records its `team`, so `draft send` posts to the workspace the draft was created against, which
+also satisfies multi-workspace write-protection). `draft send` marks the draft `sent` (with the posted
+ts + permalink) rather than deleting it, so re-sending is an idempotent no-op.
 
 ## Data Requirements
 
