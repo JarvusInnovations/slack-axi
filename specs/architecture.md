@@ -61,9 +61,15 @@ slack-axi/
 ```
 
 Command dispatch mirrors gh-axi/gws-axi: `cli.ts` calls `runAxiCli` with a `commands` map of
-`(args) => Promise<string>` handlers; multi-subcommand commands (`auth`, `channels`, `draft`) dispatch
-internally and own their own `--help`. A `resolveContext` hook resolves the active workspace (team)
-from `--team`/env/default before dispatch, analogous to gh-axi's repo-context resolution.
+`(args, ctx) => string | Record<string,unknown>` handlers; multi-subcommand commands (`auth`,
+`channels`, `draft`) dispatch internally and own their own `--help`.
+
+Active-workspace (team) resolution is **per-command via a shared `resolveActiveToken({teamFlag,
+mutation})` helper**, not the SDK's `resolveContext` hook. Rationale: `resolveContext` only receives
+the top-level command name, but write-protection is subcommand-aware (`react`/`draft send` mutate;
+`read`/`channels` don't) and several commands (`auth login`, `auth setup`) must run with no resolved
+team at all. A single helper that each command calls with its own `mutation` flag models this
+correctly; `runAxiCli` is used with `TContext = undefined`.
 
 ## Storage layout (XDG)
 

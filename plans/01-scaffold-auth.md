@@ -1,5 +1,5 @@
 ---
-status: planned
+status: in-progress
 depends: []
 specs:
   - specs/architecture.md
@@ -42,23 +42,33 @@ login --token` and `doctor`. Also `auth workspaces`/`use`/`revoke`.
 
 ## Validation
 
-- [ ] `slack-axi` with no token resolvable shows the setup-oriented home (no crash), exit 0.
+- [x] `slack-axi` with no token resolvable shows the setup-oriented home (no crash), exit 0.
 - [ ] `slack-axi auth login --token <valid xoxp>` stores `workspaces/<team>/token.json` at mode 0600,
-      derives team/user/scopes, marks it default if first.
-- [ ] `slack-axi auth login --token <invalid>` returns `AUTH_INVALID` (translated, no raw payload),
-      exit 1.
-- [ ] `SLACK_AXI_TOKEN` env overrides stored token; `SLACK_AXI_TEAM` selects workspace.
-- [ ] `slack-axi doctor` reports token ok, scope coverage (names any missing scope), read probe;
-      exit 1 only on a `fail`-tier check, exit 0 with warnings.
-- [ ] `auth workspaces` lists stored teams with default marked; definitive empty state when none.
-- [ ] `auth use <team>` is idempotent (already-default = no-op, exit 0).
-- [ ] Output is valid TOON; errors render on stdout with a fixing suggestion.
+      derives team/user/scopes, marks it default if first. *(code complete; needs a real xoxp token to
+      verify against Slack — pending user's Jarvus token.)*
+- [x] `slack-axi auth login --token <invalid>` returns `AUTH_INVALID` (translated, no raw payload),
+      exit 1. *(verified against live auth.test.)*
+- [x] `SLACK_AXI_TOKEN` env overrides stored token; `SLACK_AXI_TEAM` selects workspace.
+- [~] `slack-axi doctor` reports token ok, scope coverage (names any missing scope), read probe;
+      exit 1 only on a `fail`-tier check, exit 0 with warnings. *(token-check + fail-exit verified with
+      an invalid token; scope/read-probe rows need a valid token.)*
+- [x] `auth workspaces` lists stored teams with default marked; definitive empty state when none.
+- [x] `auth use <team>` is idempotent (already-default = no-op, exit 0).
+- [x] Output is valid TOON; errors render on stdout with a fixing suggestion.
+
+Remaining checks all require a real `xoxp-` token (`auth login` against the Jarvus workspace), then
+`doctor` confirms scope coverage + the read probe. Everything testable without a token is verified.
 
 ## Risks / unknowns
 
-- Exact mechanism for reading granted scopes (response header `x-oauth-scopes` vs. storing the set at
-  login time) — confirm during impl; store at login as the reliable source.
-- `axi-sdk-js` `runAxiCli` context-resolution signature — mirror gh-axi's `resolveContext` usage.
+- ~~Reading granted scopes~~ → **resolved**: `validateToken` does a direct `fetch` to `auth.test` and
+  reads the `x-oauth-scopes` response header (the SDK WebClient doesn't surface headers cleanly), giving
+  body + scopes in one call. Stored at login; doctor re-reads live.
+- ~~`runAxiCli` context resolution~~ → **resolved**: `resolveContext` only sees the top-level command,
+  but write-protection is subcommand-aware, so team resolution is per-command via `resolveActiveToken`
+  (not the context hook). `renderHomeHeader`/output helpers are NOT re-exported from `axi-sdk-js` (only
+  cli/errors/hooks are) — the SDK auto-prepends the home `bin:`/`description:` header, so commands must
+  not render their own.
 
 ## Notes
 
