@@ -76,13 +76,18 @@ correctly; `runAxiCli` is used with `TContext = undefined`.
 ```
 ~/.config/slack-axi/
   config.json                      # { default_team }
+  setup.json                       # global onboarding progress (no team id until login)
+  manifest.yaml                    # generated app manifest (scopes pre-filled, rotation disabled)
+  setup.html                       # generated: new-app link + copy-paste manifest box
   workspaces/<TEAM_ID>/
     token.json                     # { team, team_name, user_id, token, scopes[], obtained_at }  mode 0600
-    app.json                       # setup progress
   cache/<TEAM_ID>/
     channels.json                  # id → {name,type,is_member,topic,...}  + fetched_at (TTL)
     users.json                     # id → {name,real_name,display_name}    + fetched_at (TTL)
 ```
+
+Setup state is global (`setup.json` + generated `manifest.yaml`/`setup.html`) rather than
+per-workspace, because there is no team id until the first `auth login` succeeds.
 
 Caches back identity resolution (see [resolution-and-caching.md](behaviors/resolution-and-caching.md))
 and are refreshed lazily on TTL expiry and via `slack-axi cache refresh`.

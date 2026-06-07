@@ -9,16 +9,32 @@ surface.
 
 ### `auth setup`
 
-Progressive, agent-guided BYO-app flow (parallels gws-axi's setup). Emits Slack API deep-links and the
-exact User Token Scopes to add, tracking progress in `workspaces/<team>/app.json`. Steps:
+Progressive, agent-guided BYO-app flow (parallels gws-axi's setup), built around Slack's **app
+manifest** so the user never hand-picks scopes. Re-runnable; each run shows the next incomplete step.
 
-1. Create a Slack app (deep-link to api.slack.com/apps) — manual.
-2. Add the required **User Token Scopes** (listed verbatim, copy-pasteable).
-3. Install the app to the workspace → Slack issues the `xoxp-` token.
-4. `slack-axi auth login --token xoxp-…` to store it (auto-confirms steps 1–3).
+slack-axi generates an app manifest (YAML) pre-filled with the required User Token Scopes and with
+`token_rotation_enabled: false` (the design's "authenticate once" guarantee, encoded in the app
+itself), writing it to `manifest.yaml` plus a `setup.html` with a one-click new-app link and a
+copy-paste manifest box. Both are refreshed on every `setup` run so they track the current app name and
+scope set.
+
+Two steps:
+
+1. **`app_created`** (manual) — open `setup.html` (or `https://api.slack.com/apps?new_app=1`), choose
+   "From an app manifest", pick the workspace, paste `manifest.yaml`. Confirm with
+   `slack-axi auth setup --confirm-step app_created`.
+2. **`token_stored`** (derived) — install the app (OAuth & Permissions → Install to Workspace), copy
+   the User OAuth Token, and run `slack-axi auth login --token xoxp-…`. A stored workspace token marks
+   this step complete; it is never manually confirmed.
+
+When both are done, setup reports `complete` and points at `doctor`.
+
+Flags: `--name <name>` (manifest app display name; default `slack-axi`), `--confirm-step app_created`,
+`--show-manifest` (echo the YAML inline), `--reset` (clear state, e.g. to onboard another workspace).
 
 No OAuth loopback / no `--no-wait`/`--wait` split — the user pastes a token, which is simpler than
-gws-axi's loopback. Re-runnable; shows the next incomplete step each time.
+gws-axi's loopback. Progress is tracked in `setup.json` at the config root (global onboarding state —
+there is no team id until login). See [architecture.md](../architecture.md) for the storage layout.
 
 ### `auth login --token <xoxp-…> [--team <id>]`
 

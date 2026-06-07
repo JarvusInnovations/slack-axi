@@ -1,4 +1,11 @@
+import { homedir } from "node:os";
 import { encode } from "@toon-format/toon";
+
+/** Collapse the user's home directory prefix to `~` for display. */
+export function collapseHome(path: string): string {
+  const home = homedir();
+  return path.startsWith(home) ? `~${path.slice(home.length)}` : path;
+}
 
 /**
  * Token-efficient TOON output helpers — the shared rendering boundary for every command.

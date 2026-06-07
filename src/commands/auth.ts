@@ -6,34 +6,43 @@ import {
   setDefaultTeam,
   writeStoredToken,
 } from "../config.js";
-import { takeFlag } from "../flags.js";
-import { encodeBlock, joinBlocks, renderHelp, renderList } from "../output.js";
+import { takeBool, takeFlag } from "../flags.js";
+import { collapseHome, encodeBlock, joinBlocks, renderHelp, renderList } from "../output.js";
+import {
+  buildManifest,
+  markAppCreated,
+  NEW_APP_URL,
+  readSetupState,
+  resetSetup,
+  setAppName,
+  setupProgress,
+  writeManifestFile,
+  writeSetupHtmlFile,
+} from "../auth/setup.js";
 import { validateToken } from "../slack/client.js";
 import { toAxiError } from "../slack/errors.js";
-import { missingScopes, REQUIRED_SCOPES } from "../slack/scopes.js";
+import { missingScopes } from "../slack/scopes.js";
 
 export const AUTH_HELP = `usage: slack-axi auth <subcommand> [flags]
 subcommands[5]:
-  setup                    Show how to create a Slack app and obtain a user token
+  setup                    Progressive guided setup: create an app from a manifest, then log in
   login --token <xoxp-...> Validate and store a token (derives team/user/scopes)
   workspaces               List authenticated workspaces (default marked)
   use <team>               Set the default workspace
   revoke <team>            Delete a workspace's stored token
+setup flags[4]:
+  --name <name>            App display name in the manifest (default: slack-axi)
+  --confirm-step <step>    Mark a manual step done (step: app_created)
+  --show-manifest          Also print the manifest YAML inline
+  --reset                  Clear setup state (e.g. to set up another workspace)
 flags[2]:
   --team <id>              Target a specific workspace (login/use/revoke)
   --token <xoxp-...>       The user token to store (login)
 examples:
   slack-axi auth setup
+  slack-axi auth setup --confirm-step app_created
   slack-axi auth login --token xoxp-...
-  slack-axi auth workspaces
-  slack-axi auth use T01ABC`;
-
-const SETUP_HELP = `Create a Slack app and obtain a user token:
-  1. Create an app at https://api.slack.com/apps (From scratch), pick the workspace.
-  2. OAuth & Permissions → User Token Scopes → add:
-     ${REQUIRED_SCOPES.join(" ")}
-  3. Install to Workspace → copy the User OAuth Token (starts with xoxp-).
-  4. Run: slack-axi auth login --token xoxp-...`;
+  slack-axi auth workspaces`;
 
 export async function authCommand(args: string[]): Promise<string> {
   if (args.includes("--help") || args.length === 0) return AUTH_HELP;
@@ -43,7 +52,7 @@ export async function authCommand(args: string[]): Promise<string> {
 
   switch (sub) {
     case "setup":
-      return setup();
+      return setup(rest);
     case "login":
       return login(rest);
     case "workspaces":
@@ -59,8 +68,76 @@ export async function authCommand(args: string[]): Promise<string> {
   }
 }
 
-function setup(): string {
-  return joinBlocks(encodeBlock("setup", { note: "manual app creation — token-based auth" }), SETUP_HELP);
+function setup(args: string[]): string {
+  let rest = args;
+  const reset = takeBool(rest, "--reset");
+  rest = reset.rest;
+  if (reset.present) resetSetup();
+
+  const showManifest = takeBool(rest, "--show-manifest");
+  rest = showManifest.rest;
+
+  const nameFlag = takeFlag(rest, "--name");
+  rest = nameFlag.rest;
+  if (nameFlag.value) setAppName(nameFlag.value);
+
+  const confirm = takeFlag(rest, "--confirm-step");
+  rest = confirm.rest;
+  if (confirm.value) {
+    if (confirm.value !== "app_created") {
+      throw new AxiError(`Unknown setup step: ${confirm.value}`, "USAGE", [
+        "The only manual step is `app_created`",
+      ]);
+    }
+    markAppCreated();
+  }
+
+  // Always refresh the generated artifacts so they reflect the current app name + scopes.
+  const appName = readSetupState().app_name;
+  const manifestFile = writeManifestFile(appName);
+  const htmlFile = writeSetupHtmlFile(appName);
+
+  const progress = setupProgress();
+  const head = encodeBlock("setup", {
+    progress: `${progress.done} of ${progress.total} steps complete`,
+    ...(progress.complete ? { status: "complete" } : { next_step: progress.next }),
+  });
+
+  let help: string[];
+  let blocks: Array<string | undefined> = [head];
+
+  if (progress.next === "app_created") {
+    blocks.push(
+      encodeBlock("files", { manifest: collapseHome(manifestFile), setup_page: collapseHome(htmlFile) }),
+    );
+    help = [
+      `Open ${collapseHome(htmlFile)} (or ${NEW_APP_URL}) → "From an app manifest" → pick your workspace → paste the manifest from ${collapseHome(manifestFile)}`,
+      "Token rotation is disabled in the manifest, so the resulting token won't expire",
+      "Once the app exists, run `slack-axi auth setup --confirm-step app_created`",
+    ];
+  } else if (progress.next === "token_stored") {
+    help = [
+      'On the app\'s "OAuth & Permissions" page, click "Install to Workspace" and authorize',
+      "Copy the User OAuth Token (xoxp-...) and run `slack-axi auth login --token xoxp-...`",
+    ];
+  } else {
+    help = [
+      "Run `slack-axi doctor` to verify scopes + read access",
+      "To set up another workspace, run `slack-axi auth setup --reset`",
+    ];
+  }
+
+  if (showManifest.present) blocks.push(`manifest_yaml: |\n${indent(buildManifest(appName), 2)}`);
+  blocks.push(renderHelp(help));
+  return joinBlocks(...blocks);
+}
+
+function indent(text: string, spaces: number): string {
+  const pad = " ".repeat(spaces);
+  return text
+    .split("\n")
+    .map((line) => (line.length > 0 ? pad + line : line))
+    .join("\n");
 }
 
 async function login(args: string[]): Promise<string> {

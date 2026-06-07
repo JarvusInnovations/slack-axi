@@ -39,6 +39,18 @@ export function userConfigPath(): string {
   return join(configDir(), "config.json");
 }
 
+export function setupStatePath(): string {
+  return join(configDir(), "setup.json");
+}
+
+export function manifestPath(): string {
+  return join(configDir(), "manifest.yaml");
+}
+
+export function setupHtmlPath(): string {
+  return join(configDir(), "setup.html");
+}
+
 export function workspaceDir(teamId: string): string {
   return join(configDir(), "workspaces", teamId);
 }
