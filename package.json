@@ -3,8 +3,15 @@
   "version": "0.1.0",
   "description": "AXI-compliant Slack CLI — read, search, and draft Slack with token-efficient TOON output",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/JarvusInnovations/slack-axi.git"
+  },
   "bin": {
     "slack-axi": "./dist/bin/slack-axi.js"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "files": [
     "dist",
