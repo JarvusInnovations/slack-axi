@@ -16,6 +16,7 @@ export async function homeCommand(): Promise<string> {
     return renderHelp([
       "Run `slack-axi auth setup` to create a Slack app and obtain a user token",
       "Then `slack-axi auth login --token xoxp-...`",
+      "Run `slack-axi --help` to see the full command list, or `slack-axi <command> --help` for usage on any command",
     ]);
   }
 
@@ -34,6 +35,7 @@ export async function homeCommand(): Promise<string> {
   const help: string[] = ["Run `slack-axi channels` to list your channels (all types)"];
   if (stored.length > 1) help.push("Run `slack-axi auth workspaces` to see all workspaces");
   help.push("Run `slack-axi doctor` to verify auth + scopes");
+  help.push("Run `slack-axi --help` to see the full command list, or `slack-axi <command> --help` for usage on any command");
 
   return joinBlocks(status, renderHelp(help));
 }

@@ -22,10 +22,15 @@ description: Read, search, and draft Slack across your workspaces
 status:
   workspace: Acme (T0ABCDEF)
   your_channels: 1564
-help[2]:
+help[3]:
   Run `slack-axi channels` to list your channels (all types)
   Run `slack-axi doctor` to verify auth + scopes
+  Run `slack-axi --help` to see the full command list, or `slack-axi <command> --help` for usage on any command
 ```
+
+The final `help[]` entry — a `--help` discovery pointer (full command list + per-command usage) — is
+always present (both the setup-oriented and authenticated home), so an agent can always find the rest
+of the surface.
 
 - If no token is resolvable: show a setup-oriented home (no `status` block; `help[]` points at
   `auth setup` / `auth login`).
