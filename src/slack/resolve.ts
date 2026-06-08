@@ -74,7 +74,7 @@ function commonPrefixLen(a: string, b: string): number {
 
 /**
  * Lenient "did you mean" ranking for a not-found name: substring either direction scores highest,
- * otherwise shared-prefix length. Surfaces near-misses (`bid-rtd-xyz` → `bid-rtd-*`) that a strict
+ * otherwise shared-prefix length. Surfaces near-misses (`genrl-typo` → `general-*`) that a strict
  * substring filter would miss.
  */
 function suggestChannels(channels: ChannelMeta[], query: string, limit: number): ChannelMeta[] {

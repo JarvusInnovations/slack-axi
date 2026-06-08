@@ -20,7 +20,7 @@ or the agent can verify before sending.
 ```
 draft:
   id: d_01H…
-  workspace: Jarvus (T01ABC)
+  workspace: Acme (T01ABC)
   channel: #eng (C0B)
   reply_to: 1717589640.123456
   text: "Confirmed — the refresh landed in 4.8."

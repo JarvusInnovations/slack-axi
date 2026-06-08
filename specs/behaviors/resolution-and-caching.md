@@ -16,7 +16,7 @@ Every command that takes a channel argument (`read`, `thread`, `search --in`, `m
 
 ### Channel resolution
 
-- Accept `#bid-foo`, `bid-foo`, or a raw id. A leading `#` is stripped. Anything matching the id shape
+- Accept `#general`, `general`, or a raw id. A leading `#` is stripped. Anything matching the id shape
   (`C`/`G`/`D` + alphanumerics) is treated as an id and used directly.
 - Name → id lookup uses the cached channel list (`cache/<team>/channels.json`), which is built from
   `users.conversations` across **all** types the user belongs to, plus `conversations.list` results
@@ -24,7 +24,7 @@ Every command that takes a channel argument (`read`, `thread`, `search --in`, `m
   member-scoped cache.
 - On a name miss: refresh the cache once and retry. If still unresolved, return a structured error
   with the closest fuzzy matches as suggestions (see [errors.md](errors.md)) — never a bare failure.
-- Channel output **always pairs name and id** (`#bid-foo (C0APJ9LA4KW)`), so a consumer can lift the
+- Channel output **always pairs name and id** (`#general (C0123ABCD)`), so a consumer can lift the
   HQ `{name, id}` pair directly (see [permalinks.md](permalinks.md)).
 
 ### User resolution

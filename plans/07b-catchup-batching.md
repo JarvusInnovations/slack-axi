@@ -33,7 +33,7 @@ time — plus the underlying fix that makes adjacent windows/batches tile with n
 
 - [x] `catchup --every 1w` emits non-overlapping date batches (last clipped to `--to`), scope echoed,
       no fetch. *(verified: month → 6 weekly batches.)*
-- [x] Adjacent windows are disjoint and lossless — empirically on Jarvus: week1 ∪ week2 == the single
+- [x] Adjacent windows are disjoint and lossless — empirically on Acme: week1 ∪ week2 == the single
       two-week read, overlap 0, drops 0.
 - [x] Unit tests (14 pass): exclusive `endMs`, `--to` next-midnight binding, `tsExclusiveBefore` (incl.
       second-borrow), `batchWindows` tiling (shared boundary instant, 1µs adjacency), DST spring-forward

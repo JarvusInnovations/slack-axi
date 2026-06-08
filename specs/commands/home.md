@@ -20,7 +20,7 @@ Content-first per the `axi` standard — live state, not a manual. The SDK prepe
 bin: ~/.asdf/installs/nodejs/22.22.3/bin/slack-axi
 description: Read, search, and draft Slack across your workspaces
 status:
-  workspace: Jarvus (T024GATE8)
+  workspace: Acme (T0ABCDEF)
   your_channels: 1564
 help[2]:
   Run `slack-axi channels` to list your channels (all types)

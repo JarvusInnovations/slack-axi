@@ -20,7 +20,7 @@ arguments accept `#name`, bare `name`, or an id (`C…`/`G…`/`D…`) interchan
 ## Find channels (incl. private channels, group DMs, DMs)
 
 - `npx -y slack-axi channels` — your conversations across ALL types (capped; use `--match`/`--type`).
-- `npx -y slack-axi channels --match bid` — fuzzy-find by name.
+- `npx -y slack-axi channels --match proj` — fuzzy-find by name.
 - `npx -y slack-axi channels --type private` — filter (public|private|mpim|im); `--all` for the whole workspace.
 - `npx -y slack-axi dms` — DMs and group DMs with participants.
 - `npx -y slack-axi members <channel>` — channel members, names resolved.

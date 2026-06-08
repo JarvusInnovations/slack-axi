@@ -31,25 +31,25 @@ everything posted. Slack has no cross-conversation history endpoint, so this fan
 ## Validation
 
 - [x] `catchup` returns per-channel blocks for channels with activity; year-stamped range; `swept: N (M
-      active)` summary. *(verified via `--match bid`: swept 29, 8 active.)*
+      active)` summary. *(verified via `--match proj`: swept 29, 8 active.)*
 - [x] Scoped set over `--max-channels` → guard error naming the count + how to narrow; no sweep runs.
       *(default member public+private = 515 → `TOO_MANY_CHANNELS`.)*
 - [x] `--match`/`--type`/`--in` narrow the set; `--in` accepts a comma list of `#name`/name/id.
-      *(verified `--in bid-rtd-analytics,bid-rfta-transitlake`.)*
+      *(verified `--in general,proj-beta`.)*
 - [x] Empty channels omitted from the body but counted in `swept`. *(29 swept, 8 shown.)*
 - [x] `--limit-per` caps per-channel; exceeding it marks that channel incomplete with its total.
       *(logic in place; per-channel `(most recent N of M…)` header.)*
 - [x] Threads not inlined — `[+N replies]` note shown; `--exclude-bots` filters; `--cite` adds permalinks.
-- [x] Verified against Jarvus on a real window over the `#bid-*` set (the RTD + RFTA threads).
+- [x] Verified against Acme on a real window over the `#proj-*` set (the two proposals threads).
 
 ## Risks / unknowns
 
 - ~~Rate limits~~ → fine in practice: sequential calls + SDK retry; the guard caps the count. A 29-channel
-  `--match bid` sweep over 30d returned promptly. (Watch it on much larger scopes.)
+  `--match proj` sweep over 30d returned promptly. (Watch it on much larger scopes.)
 
 ## Notes
 
-Verified on Jarvus. The `--max-channels` guard (default 40) is the key safety: an unscoped sweep refuses
+Verified on Acme. The `--max-channels` guard (default 40) is the key safety: an unscoped sweep refuses
 to run and tells the agent to narrow. Reuses the read stack (time/threads/format/ts/permalink) wholesale.
 Committed to trunk.
 

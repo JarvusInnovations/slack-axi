@@ -29,9 +29,9 @@ modifier translation, permalinks on matches, and `help[]` that steers window-sha
 ## Validation
 
 - [x] `search "<q>"` returns matches with `{channel,author,when,text,ts}` (channel name+id); total
-      shown. *(verified on Jarvus.)*
+      shown. *(verified on Acme.)*
 - [x] `--in`, `--from`, `--after`, `--before` translate to the correct Slack modifiers and combine.
-      *(verified: `score sheet in:#bid-rtd-analytics`, `underbid after:2026-03-01`.)*
+      *(verified: `auth fix in:#general`, `deploy after:2026-03-01`.)*
 - [x] Matches carry the `ts` handle; `--cite` inlines the permalink (free — search returns it) and
       `cite` resolves it on demand. *(verified, incl. `thread_ts` on a reply match.)*
 - [x] Zero matches → definitive empty state suggesting broader terms or `read`. *(verified.)*
@@ -47,9 +47,9 @@ modifier translation, permalinks on matches, and `help[]` that steers window-sha
 
 ## Notes
 
-Verified end-to-end on Jarvus. `search.messages` returns each match's `username` and `permalink`
-inline, so author labels and `--cite` need no extra calls — and search surfaced `wtimmerman`, the same
-user `read` rendered as raw `U07NRSH8B97` (confirming that id is simply absent from the cached
+Verified end-to-end on Acme. `search.messages` returns each match's `username` and `permalink`
+inline, so author labels and `--cite` need no extra calls — and search surfaced `alice`, the same
+user `read` rendered as raw `U0EXAMPLE` (confirming that id is simply absent from the cached
 `users.list`; graceful fallback, tracked under plan 03). Shares the time/format/ts/output layers from
 plan 03. Committed to trunk.
 

@@ -28,9 +28,9 @@ flags[10]:
 Threads are not inlined here (kept cheap across many channels); a [+N replies] note marks threads —
 expand one with \`read <channel>\` or \`thread <channel> <ts>\`.
 examples:
-  slack-axi catchup --since 1d --match bid
-  slack-axi catchup --from 2026-05-01 --to 2026-06-07 --every 1w --match bid   (plan a month, weekly)
-  slack-axi catchup --from 2026-06-06T09:00 --in bid-rtd-analytics,transit-lake`;
+  slack-axi catchup --since 1d --match proj
+  slack-axi catchup --from 2026-05-01 --to 2026-06-07 --every 1w --match proj   (plan a month, weekly)
+  slack-axi catchup --from 2026-06-06T09:00 --in general,proj-beta`;
 
 const DEFAULT_MAX_CHANNELS = 40;
 const DEFAULT_LIMIT_PER = 50;

@@ -37,7 +37,7 @@ The compact `ts` is the stateless citation **handle** (dotless; not the full per
 `slack-axi cite <channel> <ts…>`, or inlined up front with `--cite` for bulk-ingest.
 
 ```
-workspace: Jarvus (T024GATE8)
+workspace: Acme (T0ABCDEF)
 channel: "#eng (C0B, private)"
 range: "2026-05-30 09:14 → 2026-06-06 09:15 (America/New_York)"
 messages: 3 of 3 top-level (threads inlined below)

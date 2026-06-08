@@ -37,7 +37,7 @@ manual, `token_stored` derived from `auth login`).
 - [x] `--name` customizes the manifest app name; `--show-manifest` echoes YAML; `--reset` clears state.
 - [x] Unknown `--confirm-step` value → structured `USAGE` error.
 - [x] End-to-end dogfood: paste manifest → create app → install → `auth login` with the real token →
-      `setup` reports `complete` → `doctor` passes. *(done against Jarvus.)*
+      `setup` reports `complete` → `doctor` passes. *(done against Acme.)*
 
 ## Risks / unknowns
 
@@ -48,7 +48,7 @@ manual, `token_stored` derived from `auth login`).
 
 ## Notes
 
-Dogfooded successfully against Jarvus. One UX fix surfaced during dogfood and was folded in: the user
+Dogfooded successfully against Acme. One UX fix surfaced during dogfood and was folded in: the user
 went straight from app creation to `auth login` (skipping `--confirm-step app_created`), so `setup`
 wrongly still showed `next_step: app_created`. Fixed `setupProgress` so a stored token subsumes the
 `app_created` waypoint and reports `complete` (spec note added to auth.md). Committed to trunk.

@@ -44,12 +44,12 @@ login --token` and `doctor`. Also `auth workspaces`/`use`/`revoke`.
 
 - [x] `slack-axi` with no token resolvable shows the setup-oriented home (no crash), exit 0.
 - [x] `slack-axi auth login --token <valid xoxp>` stores `workspaces/<team>/token.json` at mode 0600,
-      derives team/user/scopes, marks it default if first. *(verified: Jarvus T024GATE8 stored, default.)*
+      derives team/user/scopes, marks it default if first. *(verified: Acme T0ABCDEF stored, default.)*
 - [x] `slack-axi auth login --token <invalid>` returns `AUTH_INVALID` (translated, no raw payload),
       exit 1. *(verified against live auth.test.)*
 - [x] `SLACK_AXI_TOKEN` env overrides stored token; `SLACK_AXI_TEAM` selects workspace.
 - [x] `slack-axi doctor` reports token ok, scope coverage (names any missing scope), read probe;
-      exit 1 only on a `fail`-tier check, exit 0 with warnings. *(verified all-green against Jarvus:
+      exit 1 only on a `fail`-tier check, exit 0 with warnings. *(verified all-green against Acme:
       token ok, all 13 scopes granted, users.conversations reachable.)*
 - [x] `auth workspaces` lists stored teams with default marked; definitive empty state when none.
 - [x] `auth use <team>` is idempotent (already-default = no-op, exit 0).
@@ -68,7 +68,7 @@ login --token` and `doctor`. Also `auth workspaces`/`use`/`revoke`.
 
 ## Notes
 
-Verified end-to-end against the real Jarvus workspace (T024GATE8, user `chris`): `auth login` stored
+Verified end-to-end against a real workspace (team `T0ABCDEF`): `auth login` stored
 the token, `doctor` is all-green with all 13 scopes granted. Slack issued every requested user scope on
 first install. No PR — committed to trunk (commits `0b23d0d`, `7d58ac2`). `slack-axi` is `npm link`ed
 to the repo and on PATH via the asdf node shim.

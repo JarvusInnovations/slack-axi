@@ -23,8 +23,8 @@ flags[5]:
 examples:
   slack-axi channels
   slack-axi channels --type private
-  slack-axi channels --match bid
-  slack-axi channels --all --match bid`;
+  slack-axi channels --match proj
+  slack-axi channels --all --match proj`;
 
 const DEFAULT_CHANNEL_LIMIT = 50;
 const DEFAULT_DM_LIMIT = 50;

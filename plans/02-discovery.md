@@ -36,7 +36,7 @@ channels / group DMs" pain and makes `#name`/id interchangeable everywhere downs
 ## Validation
 
 - [x] `slack-axi channels` returns public + private + mpim + im the user belongs to, without the agent
-      specifying `--type`; each row pairs name+id+type; total shown. *(Jarvus: 1564 total — 125 public,
+      specifying `--type`; each row pairs name+id+type; total shown. *(Acme: 1564 total — 125 public,
       390 private, 797 mpim, 252 im.)*
 - [x] A private channel and a group DM the user is in both appear by default. *(verified.)*
 - [x] `slack-axi channels --all` paginates `conversations.list` to completion. *(688 workspace
@@ -44,7 +44,7 @@ channels / group DMs" pain and makes `#name`/id interchangeable everywhere downs
 - [x] Commands can address a channel by `#name`, bare `name`, or id. *(verified: private `#2one5` →
       `CHVBC6KLH`; id path via `conversations.info` on cache miss.)*
 - [x] Channel-name miss refreshes the cache then errors with closest fuzzy matches (not a bare fail).
-      *(prefix-scored suggestions: `bid-rtd-xyz-nope` → `#bid-rtd-analytics`, …)*
+      *(prefix-scored suggestions: `genrl-typo-xyz` → `#general`, …)*
 - [x] `dms` resolves participant names; `members <channel>` resolves member names, paginated.
       *(mpim participants parsed from the channel name — no API calls.)*
 - [x] Channel-find ranks member channels first. *(implemented as `channels --match <q>`; member
@@ -65,7 +65,7 @@ channels / group DMs" pain and makes `#name`/id interchangeable everywhere downs
 
 ## Notes
 
-Verified end-to-end against Jarvus (T024GATE8). Discovery now surfaces everything the old MCP couldn't:
+Verified end-to-end against Acme (T0ABCDEF). Discovery now surfaces everything the old MCP couldn't:
 390 private channels, 797 group DMs, 252 DMs. Group-DM participants are parsed from the Slack channel
 name (`mpdm-…`), so `dms` needs zero per-conversation calls. Committed to trunk.
 
