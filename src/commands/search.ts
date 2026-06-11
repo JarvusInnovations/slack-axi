@@ -44,8 +44,9 @@ export async function searchCommand(args: string[]): Promise<string> {
   if (args.includes("--help")) return SEARCH_HELP;
 
   const team = takeFlag(args, "--team");
-  const files = takeBool(team.rest, "--files");
-  const inFlag = takeFlag(files.rest, "--in");
+  const filesFlag = takeBool(team.rest, "--files");
+  const files = filesFlag.present;
+  const inFlag = takeFlag(filesFlag.rest, "--in");
   const fromFlag = takeFlag(inFlag.rest, "--from");
   const withFlag = takeFlag(fromFlag.rest, "--with");
   const toFlag = takeFlag(withFlag.rest, "--to");
@@ -223,7 +224,8 @@ async function sweepFiles(session: Session, query: string, cap: number): Promise
     try {
       res = await session.client.search.files({ query, count: PAGE_SIZE, page, sort: "timestamp", sort_dir: "asc" });
     } catch (err) {
-      throw scopeError(err, "files:read");
+      // search.files (like search.messages) is covered by search:read — files:read is not required.
+      throw scopeError(err, "search:read");
     }
     return {
       items: (res.files?.matches ?? []) as FileMatch[],

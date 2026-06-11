@@ -10,7 +10,6 @@ export const READ_SCOPES = [
   "im:history",
   "mpim:history",
   "search:read",
-  "files:read",
   "users:read",
   "reactions:read",
 ] as const;

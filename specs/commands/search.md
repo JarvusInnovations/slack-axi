@@ -18,11 +18,11 @@ slack-axi search "<query>" [--files] [--in <channel>] [--from <@user>] [--with <
 
 ## Data Requirements
 
-`search.messages` (default) or `search.files` (`--files`) — both user-token-only. Missing scope →
-`SCOPE_MISSING` naming the exact scope (`search:read` for messages, `files:read` for files) and
-remediation. The user cache (`users.read`) is primed once for identity resolution and author labels;
-the member-channel cache is primed when `--type` is used, to classify each match's true conversation
-type.
+`search.messages` (default) or `search.files` (`--files`) — both user-token-only and both covered by
+the **`search:read`** scope (`files:read` is for the `files.*` methods, which this command does not
+call). Missing scope → `SCOPE_MISSING` naming `search:read` and its remediation. The user cache
+(`users.read`) is primed once for identity resolution and author labels; the member-channel cache is
+primed when `--type` is used, to classify each match's true conversation type.
 
 Friendly flags translate to Slack search modifiers:
 
