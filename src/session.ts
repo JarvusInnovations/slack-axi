@@ -8,6 +8,9 @@ export interface Session {
   token: string;
   teamId: string;
   teamName?: string;
+  /** The authenticated user's id — surfaced so read-surface output can state whose view it reflects. */
+  userId?: string;
+  userName?: string;
   client: WebClient;
 }
 
@@ -20,14 +23,18 @@ export async function activeSession(options: { teamFlag?: string; mutation?: boo
   const active = resolveActiveToken(options);
   let teamId = active.teamId;
   let teamName = active.teamName;
+  let userId = active.userId;
+  let userName = active.userName;
   if (!teamId) {
     try {
       const identity = await validateToken(active.token);
       teamId = identity.teamId;
       teamName = identity.teamName;
+      userId = userId ?? identity.userId;
+      userName = userName ?? identity.userName;
     } catch (err) {
       throw toAxiError(err, options.teamFlag ? { team: options.teamFlag } : {});
     }
   }
-  return { token: active.token, teamId, teamName, client: webClient(active.token) };
+  return { token: active.token, teamId, teamName, userId, userName, client: webClient(active.token) };
 }

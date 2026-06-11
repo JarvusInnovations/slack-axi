@@ -1,6 +1,7 @@
 import { AxiError } from "axi-sdk-js";
 import type { Session } from "../session.js";
 import {
+  allCachedUsers,
   cachedChannels,
   cachedUser,
   ensureUsers,
@@ -111,6 +112,33 @@ export async function userLabel(session: Session, id: string): Promise<string> {
   const u = cachedUser(session.teamId, id);
   if (!u) return id;
   return u.display_name || u.real_name || u.name || id;
+}
+
+/** Outcome of resolving a name to a user id: a unique hit, no match, or an ambiguous set. */
+export type UserResolution =
+  | { kind: "id"; id: string }
+  | { kind: "none" }
+  | { kind: "ambiguous"; ids: string[] };
+
+/**
+ * Resolve a bare name (no `@`/id) to a single user id by matching the cached display_name, real_name,
+ * or handle case-insensitively. Used to turn `--from alice` into an exact `from:<@U…>` modifier instead
+ * of Slack's fuzzy `from:@alice`. A leading `@` is stripped before matching. Returns `ambiguous` when
+ * more than one distinct user matches so the caller can fall back transparently. Pure over the cache —
+ * the caller is responsible for `ensureUsers` first.
+ */
+export function resolveUserId(session: Session, name: string): UserResolution {
+  const target = name.trim().replace(/^@/, "").toLowerCase();
+  if (!target) return { kind: "none" };
+  const matches = new Set<string>();
+  for (const u of Object.values(allCachedUsers(session.teamId))) {
+    const candidates = [u.display_name, u.real_name, u.name];
+    if (candidates.some((c) => c && c.toLowerCase() === target)) matches.add(u.id);
+  }
+  const ids = [...matches];
+  if (ids.length === 1) return { kind: "id", id: ids[0] };
+  if (ids.length === 0) return { kind: "none" };
+  return { kind: "ambiguous", ids };
 }
 
 /** A human label for a channel: `#name` for channels, `@user` for a DM, participants for a group DM. */

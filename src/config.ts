@@ -23,6 +23,8 @@ export interface ActiveToken {
   token: string;
   teamId: string | undefined;
   teamName: string | undefined;
+  userId: string | undefined;
+  userName: string | undefined;
   scopes: string[] | undefined;
   source: "env" | "flag" | "default" | "single";
 }
@@ -200,6 +202,8 @@ export function resolveActiveToken(options: {
       token: envToken,
       teamId: envTeam,
       teamName: stored?.team_name,
+      userId: stored?.user_id,
+      userName: stored?.user_name,
       scopes: stored?.scopes,
       source: "env",
     };
@@ -253,6 +257,8 @@ function fromStored(teamId: string, source: ActiveToken["source"]): ActiveToken 
     token: stored.token,
     teamId: stored.team_id,
     teamName: stored.team_name,
+    userId: stored.user_id,
+    userName: stored.user_name,
     scopes: stored.scopes,
     source,
   };

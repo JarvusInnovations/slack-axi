@@ -27,6 +27,8 @@ flags[2]:
 examples:
   slack-axi channels --match proj
   slack-axi read #general --since 7d
+  slack-axi search "token refresh" --in #eng --after 2026-05-01
+  slack-axi search "contract" --files --from alice
   slack-axi catchup --from 2026-05-01 --to 2026-06-07 --every 1w --match proj
   slack-axi react #eng <ts> :eyes:
   slack-axi draft #eng "message"   (then: slack-axi draft send <id>)`;
