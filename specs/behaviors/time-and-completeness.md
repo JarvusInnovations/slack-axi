@@ -9,7 +9,10 @@ paginate **to completion** over that window, and emit an explicit **completeness
 ## Applies To
 
 `read`, `thread` (window-bounded reads), and any future history-sweeping command. `search` accepts the
-same human time flags for its `after:`/`before:` modifiers but makes no completeness guarantee (see
+same human time flags for its `after:`/`before:`/`on:` modifiers. It is bounded by a **query** rather
+than a time window, but it makes the same kind of completeness guarantee on its own axis — it sweeps all
+matching messages the user can see and declares `complete: true|false` (see
+[search.md → Pagination & completeness](../commands/search.md) and
 [principles.md → Read is for windows, search is for finding](../principles.md#read-is-for-windows-search-is-for-finding)).
 
 ## Details
