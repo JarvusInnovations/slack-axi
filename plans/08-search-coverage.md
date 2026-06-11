@@ -1,10 +1,11 @@
 ---
-status: in-progress
+status: done
 depends: [04-search]
 specs:
   - specs/commands/search.md
   - specs/behaviors/time-and-completeness.md
 issues: []
+pr: https://github.com/JarvusInnovations/slack-axi/pull/6
 ---
 
 # 08 — search coverage, efficiency & traceability
