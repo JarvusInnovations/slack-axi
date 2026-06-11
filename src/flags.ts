@@ -20,3 +20,18 @@ export function takeBool(args: string[], name: string): { present: boolean; rest
   const rest = args.filter((a) => a !== name);
   return { present: rest.length !== args.length, rest };
 }
+
+/** Extract a repeatable string-valued flag (e.g. `--has link --has file`), collecting every value. */
+export function takeFlags(args: string[], name: string): { values: string[]; rest: string[] } {
+  const rest: string[] = [];
+  const values: string[] = [];
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === name && i + 1 < args.length) {
+      values.push(args[i + 1]);
+      i++;
+      continue;
+    }
+    rest.push(args[i]);
+  }
+  return { values, rest };
+}

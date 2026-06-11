@@ -55,4 +55,7 @@ plan 03. Committed to trunk.
 
 ## Follow-ups
 
-- None. (Read-surface is now complete: discovery + windowed read + cite + search.)
+- ~~None. (Read-surface is now complete: discovery + windowed read + cite + search.)~~ **Superseded by
+  [08-search-coverage](08-search-coverage.md):** the initial `search.messages` call used `count: limit`
+  with no pagination, silently returning page 1 past 100 results. 08 makes search exhaustive-by-default,
+  file-aware, and richer in modifiers, and adds the `coverage:`/`complete` honesty markers.
