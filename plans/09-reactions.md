@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 depends: [03-read]
 specs:
   - specs/behaviors/reactions.md
@@ -7,6 +7,7 @@ specs:
   - specs/commands/read.md
   - specs/architecture.md
 issues: []
+pr: https://github.com/JarvusInnovations/slack-axi/pull/8
 ---
 
 # 09 — emoji reactions: inline counts + full reactor roster
@@ -83,8 +84,23 @@ reaction *counts* in those views is a possible follow-up, not this change).
 
 ## Notes
 
-(Populated at closeout.)
+- **The truncation is the whole design.** `conversations.history` embeds a per-reaction `users` array
+  but Slack documents it "might not always contain all users"; `count` is always the true total. Only
+  `reactions.get full=true` "always return[s] the complete reaction list." Verified live (max reactor
+  count in this workspace was 14, where both sources agreed — the cap is higher, but the docs are
+  unambiguous and the design follows them). This is why inline = counts-only and names live behind a
+  dedicated per-message call.
+- **TOON uniformity is load-bearing.** A row key present on only some rows collapses the compact
+  `messages[N]{cols}:` table into verbose per-field YAML. `fillReactionColumn` enforces all-or-nothing:
+  the column is added only when some row has reactions, then set (empty `""`) on every row.
+- **`react` vs `reactions`** dispatch by exact match in the AXI SDK (`options.commands[command]`), so the
+  shared prefix is unambiguous — no aliasing needed.
+- Skin-tone/modifier variants (`+1::skin-tone-3`) are distinct reactions in Slack and are preserved
+  verbatim and counted separately, confirmed live.
 
 ## Follow-ups
 
-(Populated at closeout.)
+- **Reaction counts in `search`/`catchup` views** — `search` already supports the `--has reaction`
+  *filter*, but neither view surfaces reaction *counts* in output. Possible enhancement, not needed for
+  this capability. Tracked as: None (no issue filed; noted here and in `specs/commands/reactions.md`
+  out-of-scope). Revisit if an agent workflow wants reaction signal in a sweep.
