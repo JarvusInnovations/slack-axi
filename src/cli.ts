@@ -14,14 +14,15 @@ import { citeCommand, CITE_HELP } from "./commands/cite.js";
 import { doctorCommand, DOCTOR_HELP } from "./commands/doctor.js";
 import { homeCommand } from "./commands/home.js";
 import { readCommand, READ_HELP, threadCommand, THREAD_HELP } from "./commands/read.js";
+import { reactionsCommand, REACTIONS_HELP } from "./commands/reactions.js";
 import { searchCommand, SEARCH_HELP } from "./commands/search.js";
 import { setupCommand, SETUP_HELP } from "./commands/setup.js";
 import { draftCommand, DRAFT_HELP, reactCommand, REACT_HELP } from "./commands/write.js";
 import { DESCRIPTION, readVersion } from "./meta.js";
 
 export const TOP_HELP = `usage: slack-axi [command] [args] [flags]
-commands[14]:
-  (none)=home, auth, doctor, channels, dms, members, read, thread, cite, search, catchup, react, draft, setup
+commands[15]:
+  (none)=home, auth, doctor, channels, dms, members, read, thread, cite, search, catchup, react, reactions, draft, setup
 flags[2]:
   --team <id> (per-command), --help, -v/--version
 examples:
@@ -31,6 +32,7 @@ examples:
   slack-axi search "contract" --files --from alice
   slack-axi catchup --from 2026-05-01 --to 2026-06-07 --every 1w --match proj
   slack-axi react #eng <ts> :eyes:
+  slack-axi reactions #eng <ts>
   slack-axi draft #eng "message"   (then: slack-axi draft send <id>)`;
 
 const COMMAND_HELP: Record<string, string> = {
@@ -46,6 +48,7 @@ const COMMAND_HELP: Record<string, string> = {
   search: SEARCH_HELP,
   catchup: CATCHUP_HELP,
   react: REACT_HELP,
+  reactions: REACTIONS_HELP,
   draft: DRAFT_HELP,
   setup: SETUP_HELP,
 };
@@ -69,6 +72,7 @@ export async function main(): Promise<void> {
       search: (args) => searchCommand(args),
       catchup: (args) => catchupCommand(args),
       react: (args) => reactCommand(args),
+      reactions: (args) => reactionsCommand(args),
       draft: (args) => draftCommand(args),
       setup: (args) => setupCommand(args),
     },

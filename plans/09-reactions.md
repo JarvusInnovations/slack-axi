@@ -62,16 +62,17 @@ reaction *counts* in those views is a possible follow-up, not this change).
 
 ## Validation
 
-- [ ] `read` over a window containing reactions shows a uniform counts-only `reactions` column
-      (`:emoji:×N`); a reaction-free window shows **no** column.
-- [ ] `thread` on a thread whose messages carry reactions shows the same uniform inline column.
-- [ ] `reactions <channel> <ts>` returns `reactions[N]{emoji,count,users}` count-desc, reactor ids
+- [x] `read` over a window containing reactions shows a uniform counts-only `reactions` column
+      (`:emoji:×N`); a reaction-free window shows **no** column. (Verified live on #general: column
+      present with empty `""` rows in a mixed window; absent entirely in a join-only window.)
+- [x] `thread` on a thread whose messages carry reactions shows the same uniform inline column.
+- [x] `reactions <channel> <ts>` returns `reactions[N]{emoji,count,users}` count-desc, reactor ids
       resolved to names, `complete: true`, with the reacted message + permalink in the header.
-- [ ] A message verified to have a >1-reactor emoji lists all reactor names (sourced from
-      `reactions.get full=true`, not the truncated embed).
-- [ ] Reaction-free message → definitive empty state, exit 0; bogus ts → `MESSAGE_NOT_FOUND`.
-- [ ] Skin-tone variant rendered verbatim (`:+1::skin-tone-3:`) and counted distinctly.
-- [ ] `bun test` green; `bun run build` clean; type-check clean.
+- [x] A message verified to have a >1-reactor emoji lists all reactor names (sourced from
+      `reactions.get full=true`, not the truncated embed). (14 names on `:orange_heart:`.)
+- [x] Reaction-free message → definitive empty state, exit 0; bogus ts → `MESSAGE_NOT_FOUND`.
+- [x] Skin-tone variant rendered verbatim (`:+1::skin-tone-3:`) and counted distinctly.
+- [x] `bun test` green (37 pass); `bun run build` clean; type-check clean.
 
 ## Risks / unknowns
 
