@@ -1,4 +1,5 @@
 import type { Session } from "../session.js";
+import { type ReactionCount, toReactionCount } from "./reactions.js";
 import { epochMsToTs, tsExclusiveBefore } from "./time.js";
 
 /** A normalized Slack message (top-level or reply). */
@@ -11,6 +12,8 @@ export interface Msg {
   replyCount: number;
   threadTs?: string;
   latestReply?: string;
+  /** Counts only — the embedded reactor list is truncated, so we drop it here. See reactions.ts. */
+  reactions?: ReactionCount[];
 }
 
 export function isBot(msg: Msg): boolean {
@@ -27,6 +30,9 @@ function toMsg(raw: Record<string, unknown>): Msg {
     replyCount: typeof raw.reply_count === "number" ? raw.reply_count : 0,
     ...(typeof raw.thread_ts === "string" ? { threadTs: raw.thread_ts } : {}),
     ...(typeof raw.latest_reply === "string" ? { latestReply: raw.latest_reply } : {}),
+    ...(Array.isArray(raw.reactions)
+      ? { reactions: (raw.reactions as Record<string, unknown>[]).map(toReactionCount) }
+      : {}),
   };
 }
 

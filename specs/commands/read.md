@@ -68,6 +68,12 @@ help[1]:
   `--exclude-bots` (count reported as `bot_filtered`), `--tz <zone>`, `--full` (untruncated text).
 - `ts` is accepted by `thread`/`cite` (and later `react`/`draft --reply`) in either dotless
   (`1717589640123456`) or dotted (`1717589640.123456`) form.
+- **Reactions, inline (counts only):** when any message in the view has a reaction, a `reactions`
+  column is added (uniform across rows, empty for messages with none) showing a compact counts-only
+  summary `:heart:×12 :eyes:×3`. This rides on the history/replies call already being made — no extra
+  request. The reactor *names* are not shown inline (the embedded roster is truncated); a `help[]`
+  pointer steers to `reactions <channel> <ts>` for the complete, identity-resolved roster. See
+  [reactions.md](../behaviors/reactions.md). `thread` carries the same inline column.
 
 ## Actions
 
@@ -75,8 +81,8 @@ None (read-only).
 
 ## Navigation
 
-`help[]` → `thread` (expand), widen/narrow window, `search` (if looking for a specific thing rather
-than a window).
+`help[]` → `thread` (expand), `reactions <channel> <ts>` (who reacted, when the view shows reactions),
+widen/narrow window, `search` (if looking for a specific thing rather than a window).
 
 ## Principles
 

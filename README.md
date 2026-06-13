@@ -43,6 +43,7 @@ slack-axi dms                   # DMs + group DMs
 slack-axi members <channel>     # channel members
 slack-axi read <channel> [--since 7d | --from <d> --to <d>] [--threads ...]  # the primary verb
 slack-axi thread <channel> <ts> # one thread, fully
+slack-axi reactions <channel> <ts>  # full reactor roster (read/thread show inline counts)
 slack-axi search "<query>" [--in #c] [--from @u] [--with @u] [--after <d>]   # find a thing
 slack-axi catchup [--since 1d] [--match q] [--in ...]   # scoped multi-channel sweep
 slack-axi catchup --every 1w …  # plan a month+ catch-up as weekly batches

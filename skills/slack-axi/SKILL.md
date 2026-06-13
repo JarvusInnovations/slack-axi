@@ -35,6 +35,15 @@ arguments accept `#name`, bare `name`, or an id (`C…`/`G…`/`D…`) interchan
   a `complete: true|false` marker, and a top-level `messages: N of M` count — coverage is never silently
   partial.
 - `npx -y slack-axi thread <channel> <ts>` — read one thread fully.
+- `read`/`thread` show a counts-only `reactions` column (`:emoji:×N`) when any message in view has
+  reactions — free, already in the data. For **who** reacted, use the `reactions` command below.
+
+## Reactions (who reacted)
+
+- `npx -y slack-axi reactions <channel> <ts>` — every emoji on a message + the complete, name-resolved
+  roster of who reacted (count-desc). Sourced from `reactions.get full=true` (the only complete source;
+  the inline counts come truncated-roster-free from history). Pass a `ts` handle from a `read`/`search`
+  row.
 
 ## Search (find a thing — NOT a window sweep)
 

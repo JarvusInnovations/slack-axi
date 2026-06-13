@@ -5,6 +5,7 @@ import { activeSession, type Session } from "../session.js";
 import { allCachedUsers, ensureUsers, type UserMeta } from "../slack/cache.js";
 import { formatText, userName } from "../slack/format.js";
 import { getPermalink } from "../slack/permalink.js";
+import { summarizeReactions } from "../slack/reactions.js";
 import { channelLabel, resolveChannel } from "../slack/resolve.js";
 import { fetchReplies, fetchThread, fetchWindow, isBot, type Msg } from "../slack/threads.js";
 import { formatDate, formatDateTime, formatRange, formatTime, resolveWindow, tsToEpochMs } from "../slack/time.js";
@@ -93,11 +94,18 @@ export async function readCommand(args: string[]): Promise<string> {
   header.complete = complete;
   if (botFiltered > 0) header.bot_filtered = botFiltered;
 
+  // Reactions ride inline as a counts-only column, auto-when-present: only added if some row has a
+  // reaction, and then uniform across every row (empty for those with none) so the compact TOON table
+  // is preserved. See specs/behaviors/reactions.md.
+  const allRows = [...groups.values()].flat();
+  const anyReactions = fillReactionColumn(allRows);
+
   const blocks: string[] = [encodeObject(header)];
   for (const [date, rows] of groups) blocks.push(`${date}:\n${indentLines(renderList("messages", rows), 2)}`);
 
   const help = [
     f.threads !== "full" ? `Run \`slack-axi thread ${channel.id} <ts>\` to expand a thread` : undefined,
+    anyReactions ? `Run \`slack-axi reactions ${channel.id} <ts>\` to see who reacted` : undefined,
     !complete ? `Showing the most recent ${f.limit} of ${total}; raise \`--limit <n>\` or narrow the window` : undefined,
     !f.cite ? `Run \`slack-axi cite ${channel.id} <ts...>\` for permalinks to messages you cite` : undefined,
   ].filter((l): l is string => Boolean(l));
@@ -122,18 +130,24 @@ export async function threadCommand(args: string[]): Promise<string> {
   const users = allCachedUsers(session.teamId);
   const tz = "America/New_York";
   const rows = await Promise.all(
-    msgs.map(async (m, i) => ({
-      time: formatDateTime(tsToEpochMs(m.ts), tz),
-      author: authorName(m, users),
-      text: (i === 0 ? "" : "↳ ") + (full.present ? formatText(m.text, users) : truncate(formatText(m.text, users))),
-      ts: handle(m.ts),
-      permalink: await getPermalink(session, channel.id, m.ts),
-    })),
+    msgs.map(async (m, i) => {
+      const row: Record<string, unknown> = {
+        time: formatDateTime(tsToEpochMs(m.ts), tz),
+        author: authorName(m, users),
+        text: (i === 0 ? "" : "↳ ") + (full.present ? formatText(m.text, users) : truncate(formatText(m.text, users))),
+        ts: handle(m.ts),
+        permalink: await getPermalink(session, channel.id, m.ts),
+      };
+      if (m.reactions && m.reactions.length > 0) row.reactions = summarizeReactions(m.reactions);
+      return row;
+    }),
   );
+  const anyReactions = fillReactionColumn(rows);
 
   return joinBlocks(
     encodeObject({ channel: `${await channelLabel(session, channel)} (${channel.id})`, replies: msgs.length - 1 }),
     renderList("messages", rows),
+    anyReactions ? renderHelp([`Run \`slack-axi reactions ${channel.id} <ts>\` to see who reacted`]) : "",
   );
 }
 
@@ -205,7 +219,24 @@ async function buildRow(
     ts: handle(msg.ts),
   };
   if (f.cite) row.permalink = await getPermalink(session, channelId, msg.ts);
+  if (msg.reactions && msg.reactions.length > 0) row.reactions = summarizeReactions(msg.reactions);
   return row;
+}
+
+/**
+ * Make the inline reactions column uniform (auto-when-present): if any row carries a `reactions`
+ * summary, ensure every row has the key (empty string when it had none), appended last so the TOON
+ * table stays compact. Returns whether the column was applied. See specs/behaviors/reactions.md.
+ */
+function fillReactionColumn(rows: Array<Record<string, unknown>>): boolean {
+  const any = rows.some((r) => typeof r.reactions === "string" && r.reactions.length > 0);
+  if (!any) {
+    // Drop any stray empty key so a reaction-free view shows no column at all.
+    for (const r of rows) delete r.reactions;
+    return false;
+  }
+  for (const r of rows) if (typeof r.reactions !== "string") r.reactions = "";
+  return true;
 }
 
 function authorName(msg: Msg, users: Record<string, UserMeta>): string {
