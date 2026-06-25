@@ -27,8 +27,11 @@ channel name (`mpdm-a--b--c-1`) with **no API call**; IM labels use the user cac
 
 ### `members <channel> [--limit <n>]`
 
-Channel members (`conversations.members`, paginated to completion) with names resolved; display capped
-with a truncation hint.
+Channel members (`conversations.members`, paginated to completion) with names resolved **where
+known** — including external/shared-channel and guest members via the on-demand `users.info` fallback
+(see [resolution-and-caching.md](../behaviors/resolution-and-caching.md)); any id that still can't be
+resolved is shown as `Uxxxx (unresolved)`, never implied to be a handle. Display capped with a
+truncation hint.
 
 ## Data Requirements
 

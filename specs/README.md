@@ -21,6 +21,7 @@ specs/
     auth.md          # setup / login / workspaces / use / revoke
     doctor.md        # health + scope coverage
     channels.md      # channels / dms / members / search channels
+    user.md          # user <id|@handle> lookup (external/guest resolution)
     read.md          # read <channel> + thread <channel> <ts>
     search.md        # search.messages
     cite.md          # reconstruct permalinks / HQ sources from ts handles

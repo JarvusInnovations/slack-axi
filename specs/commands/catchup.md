@@ -31,8 +31,11 @@ boundary's wall-clock by an hour — coverage stays exact; only a displayed date
 ## Data Requirements
 
 - The conversation set, then `conversations.history` per channel over the resolved window (paginated to
-  completion), plus the user cache for names. Threads via `conversations.replies` only when
-  `--threads full`.
+  completion), plus the user cache for names — with the on-demand `users.info` fallback for
+  external/shared-channel authors and mentions absent from the bulk roster (all referenced ids across
+  the swept channels hydrated in one batched pass; unresolvable ids render `Uxxxx (unresolved)`). See
+  [resolution-and-caching.md](../behaviors/resolution-and-caching.md). Threads via
+  `conversations.replies` only when `--threads full`.
 - **Scope resolution:**
   - `--in <c1,c2,...>` — an explicit comma-separated channel list (`#name`/name/id each).
   - else member channels (`is_member`) filtered by `--type` (default `public,private` — DMs/group DMs
