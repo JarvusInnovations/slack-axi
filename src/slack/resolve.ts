@@ -4,13 +4,14 @@ import {
   allCachedUsers,
   cachedChannels,
   cachedUser,
-  ensureUsers,
+  ensureUsersByIds,
   fetchChannelInfo,
   getCachedChannel,
   getChannels,
   refreshAllChannels,
   type ChannelMeta,
 } from "./cache.js";
+import { unresolvedLabel } from "./format.js";
 
 /** Slack channel ids start with C (public), G (private/mpim), or D (im), then uppercase alphanumerics. */
 const ID_RE = /^[CGD][A-Z0-9]{6,}$/;
@@ -106,12 +107,14 @@ export function fuzzyChannelMatches(channels: ChannelMeta[], query: string, limi
     .slice(0, limit);
 }
 
-/** A human label for a user id (display name → real name → handle → id). Cache-backed. */
+/**
+ * A human label for a user id (display name → real name → handle → unresolved). Cache-backed, with a
+ * `users.info` fallback for ids absent from the bulk roster (external/shared-channel/guest users).
+ */
 export async function userLabel(session: Session, id: string): Promise<string> {
-  await ensureUsers(session);
+  await ensureUsersByIds(session, [id]);
   const u = cachedUser(session.teamId, id);
-  if (!u) return id;
-  return u.display_name || u.real_name || u.name || id;
+  return (u && (u.display_name || u.real_name || u.name)) || unresolvedLabel(id);
 }
 
 /** Outcome of resolving a name to a user id: a unique hit, no match, or an ambiguous set. */

@@ -23,7 +23,8 @@ arguments accept `#name`, bare `name`, or an id (`C…`/`G…`/`D…`) interchan
 - `npx -y slack-axi channels --match proj` — fuzzy-find by name.
 - `npx -y slack-axi channels --type private` — filter (public|private|mpim|im); `--all` for the whole workspace.
 - `npx -y slack-axi dms` — DMs and group DMs with participants.
-- `npx -y slack-axi members <channel>` — channel members, names resolved.
+- `npx -y slack-axi members <channel>` — channel members; external/shared-channel and guest names resolved on demand, unresolvable ids shown as `Uxxxx (unresolved)`.
+- `npx -y slack-axi user <id|@handle> [...]` — look up users by id or handle: real/display name and whether each is external (Slack Connect), a guest, or a bot. Resolves shared-channel members the roster misses.
 
 ## Read a channel over a time window (the primary verb)
 

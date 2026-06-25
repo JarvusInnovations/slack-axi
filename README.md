@@ -40,7 +40,8 @@ Run `slack-axi doctor` to verify auth and scope coverage.
 slack-axi                       # home: active workspace + channel count
 slack-axi channels [--match q] [--type ...] [--all]   # discover (all conversation types)
 slack-axi dms                   # DMs + group DMs
-slack-axi members <channel>     # channel members
+slack-axi members <channel>     # channel members (external/guest names resolved on demand)
+slack-axi user <id|@handle>     # look up a user: name, external/guest/bot
 slack-axi read <channel> [--since 7d | --from <d> --to <d>] [--threads ...]  # the primary verb
 slack-axi thread <channel> <ts> # one thread, fully
 slack-axi reactions <channel> <ts>  # full reactor roster (read/thread show inline counts)
