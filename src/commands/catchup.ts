@@ -2,9 +2,10 @@ import { AxiError } from "axi-sdk-js";
 import { takeBool, takeFlag } from "../flags.js";
 import { encodeObject, joinBlocks, renderHelp, renderList, truncate } from "../output.js";
 import { activeSession, type Session } from "../session.js";
-import { allCachedUsers, ensureUsers, getChannels, type ChannelMeta, type UserMeta } from "../slack/cache.js";
+import { allCachedUsers, ensureUsersByIds, getChannels, type ChannelMeta, type UserMeta } from "../slack/cache.js";
 import { formatText, userName } from "../slack/format.js";
 import { getPermalink } from "../slack/permalink.js";
+import { collectUserIds } from "./read.js";
 import { channelLabel, resolveChannel } from "../slack/resolve.js";
 import { fetchWindow, isBot, type Msg } from "../slack/threads.js";
 import { batchWindows, formatDate, formatDateTime, formatRange, parseSpanMs, resolveWindow, tsToEpochMs } from "../slack/time.js";
@@ -106,20 +107,24 @@ export async function catchupCommand(args: string[]): Promise<string> {
     );
   }
 
-  await ensureUsers(session);
-  const users = allCachedUsers(session.teamId);
-
-  // Sequential sweep to respect Slack's tightened conversations.history rate limits.
-  const active: Array<{ channel: ChannelMeta; label: string; total: number; rows: Array<Record<string, unknown>> }> = [];
+  // Sequential sweep to respect Slack's tightened conversations.history rate limits. Collect each
+  // channel's window first, then hydrate every referenced user id (authors + mentions, including
+  // external/shared-channel ones) in a single pass before labeling.
+  const swept: Array<{ channel: ChannelMeta; total: number; shown: Msg[] }> = [];
   for (const channel of pool) {
     let msgs = await fetchWindow(session, channel.id, window.oldestMs, window.endMs);
     if (excludeBots.present) msgs = msgs.filter((m) => !isBot(m));
     if (msgs.length === 0) continue;
-    const total = msgs.length;
-    const shown = msgs.slice(-perCap);
+    swept.push({ channel, total: msgs.length, shown: msgs.slice(-perCap) });
+  }
+  await ensureUsersByIds(session, collectUserIds(swept.flatMap((s) => s.shown)));
+  const users = allCachedUsers(session.teamId);
+
+  const active: Array<{ channel: ChannelMeta; label: string; total: number; rows: Array<Record<string, unknown>> }> = [];
+  for (const s of swept) {
     const rows: Array<Record<string, unknown>> = [];
-    for (const m of shown) rows.push(await buildRow(session, channel.id, m, users, window.tz, cite.present));
-    active.push({ channel, label: await channelLabel(session, channel), total, rows });
+    for (const m of s.shown) rows.push(await buildRow(session, s.channel.id, m, users, window.tz, cite.present));
+    active.push({ channel: s.channel, label: await channelLabel(session, s.channel), total: s.total, rows });
   }
 
   const header = encodeObject({

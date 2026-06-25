@@ -24,6 +24,13 @@ export interface UserMeta {
   real_name?: string;
   display_name?: string;
   is_bot: boolean;
+  /** True for Slack Connect / shared-channel members from another workspace. */
+  is_external?: boolean;
+  /** True for multi-channel or single-channel guests (restricted accounts). */
+  is_guest?: boolean;
+  /** Present only when the token holds `users:read.email` and the user exposes one. */
+  email?: string;
+  title?: string;
 }
 
 interface ChannelsCache {
@@ -34,10 +41,19 @@ interface ChannelsCache {
 interface UsersCache {
   fetched_at: number;
   users: Record<string, UserMeta>;
+  /** Ids that `users.info` couldn't resolve, with the epoch ms of the failed lookup (negative cache). */
+  misses?: Record<string, number>;
 }
 
 /** Cache freshness window. Caches only map id↔name; message content is always fetched live. */
 export const CACHE_TTL_MS = 60 * 60 * 1000;
+
+/**
+ * Negative-cache window for unresolvable user ids. Shorter than the positive TTL so a user who joins
+ * (or whose Slack Connect membership becomes visible) gets re-tried soon rather than staying
+ * `(unresolved)` for an hour. `cache refresh` clears it outright.
+ */
+export const USER_MISS_TTL_MS = 15 * 60 * 1000;
 
 function readJson<T>(path: string): T | undefined {
   if (!existsSync(path)) return undefined;
@@ -158,14 +174,26 @@ export async function fetchChannelInfo(session: Session, id: string): Promise<Ch
 
 // ---------------------------------------------------------------------------- users
 
-function toUserMeta(u: Record<string, unknown>): UserMeta {
-  const profile = (u.profile as { real_name?: string; display_name?: string } | undefined) ?? {};
+export function toUserMeta(u: Record<string, unknown>, teamId: string): UserMeta {
+  const profile =
+    (u.profile as { real_name?: string; display_name?: string; email?: string; title?: string } | undefined) ?? {};
+  // Slack Connect members carry a `team_id` that differs from the active workspace; `users.list`
+  // omits them entirely, which is why they only surface via the on-demand `users.info` fallback.
+  // `is_stranger` is NOT reliably set for them (it's false for verified Connect members), so the
+  // team_id mismatch is the load-bearing signal — see plan 10.
+  const userTeam = typeof u.team_id === "string" ? u.team_id : undefined;
+  const isExternal = u.is_stranger === true || (userTeam !== undefined && userTeam !== teamId);
+  const isGuest = u.is_restricted === true || u.is_ultra_restricted === true;
   return {
     id: String(u.id),
     name: typeof u.name === "string" ? u.name : String(u.id),
     ...(profile.real_name ? { real_name: profile.real_name } : {}),
     ...(profile.display_name ? { display_name: profile.display_name } : {}),
     is_bot: u.is_bot === true,
+    ...(isExternal ? { is_external: true } : {}),
+    ...(isGuest ? { is_guest: true } : {}),
+    ...(profile.email ? { email: profile.email } : {}),
+    ...(profile.title ? { title: profile.title } : {}),
   };
 }
 
@@ -184,7 +212,7 @@ export async function refreshUsers(session: Session): Promise<void> {
   do {
     const res = await session.client.users.list({ limit: 200, ...(cursor ? { cursor } : {}) });
     for (const u of res.members ?? []) {
-      const meta = toUserMeta(u as Record<string, unknown>);
+      const meta = toUserMeta(u as Record<string, unknown>, session.teamId);
       users[meta.id] = meta;
     }
     cursor = res.response_metadata?.next_cursor || undefined;
@@ -207,4 +235,43 @@ export function cachedUser(teamId: string, id: string): UserMeta | undefined {
 /** The whole users map (one file read) — for labeling many messages without repeated reads. */
 export function allCachedUsers(teamId: string): Record<string, UserMeta> {
   return loadUsers(teamId).users;
+}
+
+/** Resolve a single id via `users.info` (the one-id-per-call fallback for ids absent from the roster). */
+export async function fetchUserInfo(session: Session, id: string): Promise<UserMeta | null> {
+  try {
+    const res = await session.client.users.info({ user: id });
+    if (!res.user) return null;
+    return toUserMeta(res.user as Record<string, unknown>, session.teamId);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Hydrate the users cache with any of `ids` it's missing, via per-id `users.info` lookups. This is the
+ * fallback that resolves external Slack Connect / shared-channel / guest authors, who never appear in
+ * the bulk `users.list` roster. Lookups are deduped, run concurrently, and cached both positively
+ * (resolved → users) and negatively (unresolvable → misses, short TTL) so a cold channel pays each id
+ * once. Idempotent and cheap on a warm cache. Call once before rendering, then label synchronously
+ * from `allCachedUsers`. See specs/behaviors/resolution-and-caching.md and plan 10.
+ */
+export async function ensureUsersByIds(session: Session, ids: Iterable<string>): Promise<void> {
+  await ensureUsers(session); // base roster loaded/fresh first; a full refresh also clears stale misses
+  const cache = loadUsers(session.teamId);
+  const misses = cache.misses ?? {};
+  const at = now();
+  const need = [...new Set(ids)].filter(
+    (id) => id && !cache.users[id] && !(misses[id] !== undefined && at - misses[id] < USER_MISS_TTL_MS),
+  );
+  if (need.length === 0) return;
+
+  const fetched = await Promise.all(need.map(async (id) => [id, await fetchUserInfo(session, id)] as const));
+  for (const [id, meta] of fetched) {
+    if (meta) delete misses[id];
+    else misses[id] = at;
+    if (meta) cache.users[id] = meta;
+  }
+  cache.misses = misses;
+  saveUsers(session.teamId, cache);
 }
