@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 depends: [03-read, 07-catchup]
 specs:
   - specs/behaviors/files.md
@@ -9,6 +9,7 @@ specs:
   - specs/behaviors/auth-and-workspaces.md
   - specs/architecture.md
 issues: []
+pr: https://github.com/JarvusInnovations/slack-axi/pull/13
 ---
 
 # 11 — file attachments: surface inline + download to disk
@@ -65,18 +66,23 @@ explicit per file).
 
 ## Validation
 
-- [ ] `read`/`thread` over a message with attachments shows a uniform `files` column listing
-      `name (type, size) [F-id]`; an attachment-free view shows no column.
-- [ ] The file id in the column is accepted by `download` with no transformation.
-- [ ] `catchup` flags a message with files as `[+N file(s)]`.
+- [x] `read`/`thread` over a message with attachments shows a uniform `files` column listing
+      `name (type, size) [F-id]`; an attachment-free view shows no column. (Verified live on the CfP
+      thread: screenshot reply shows both images; other rows empty; column absent when none present.)
+- [x] The file id in the column is accepted by `download` with no transformation. (Verified: `download`
+      passed the `[F…]` ids straight through to `files.info`; only the scope gate stopped it.)
+- [x] `catchup` flags a message with files as `[+N file(s)]`. (Verified live in CfP #community: `[+1 file]`.)
 - [ ] `download <id…> --out <dir>` writes real bytes to disk and returns absolute paths; the saved
-      file opens as the correct type (verified on the CfP thread screenshots `F0B8Q0DCAA3`,
-      `F0B9ZNJ1EBS` once `files:read` is granted).
-- [ ] Without `files:read`, `download` returns `SCOPE_MISSING` naming `files:read` — never a saved
-      HTML/corrupt file. (Verified live pre-scope: `url_private_download` returns `text/html` 200.)
+      file opens as the correct type. **Unverified — blocked on `files:read`** (no workspace has granted
+      it yet; re-install needed). See Notes.
+- [x] Without `files:read`, `download` returns `SCOPE_MISSING` naming `files:read` — never a saved
+      HTML/corrupt file. (Verified live: clean error, no output dir created.)
 - [ ] Unknown id → `FILE_NOT_FOUND`; a tombstoned/inaccessible file → reported failure, batch continues.
-- [ ] `doctor` reports `files:read` missing until the app is re-installed with it.
-- [ ] `bun test` green; `bun run build` clean; type-check clean.
+      **Unverified — blocked on `files:read`** (`files.info` fails with `missing_scope` before reaching
+      file-existence checks). Tombstone→`unavailable` is unit-tested in `toFileMeta`. See Notes.
+- [x] `doctor` reports `files:read` missing until the app is re-installed with it. (Verified live on
+      both Jarvus and CfP: `scopes,warn,"missing files:read"`.)
+- [x] `bun test` green (57 pass); `bun run build` clean; type-check clean.
 
 ## Risks / unknowns
 
@@ -88,8 +94,26 @@ explicit per file).
 
 ## Notes
 
-(Populated at closeout.)
+- **Discovery vs. download is the whole design, and it's scope-asymmetric.** File *metadata*
+  (including `url_private_download`) rides on the `conversations.history`/`replies` payload and needs
+  only the history scopes — so `read`/`thread`/`catchup` surface attachments with zero new scope. Only
+  fetching the *bytes* needs `files:read`. Verified live: without `files:read`, the download URL
+  returns HTTP 200 with `text/html` (Slack's login page), not the image — hence the content-type guard
+  in `downloadFile` plus the `files.info` `missing_scope` path, both mapping to `SCOPE_MISSING`.
+- **`files:read` is a breaking scope add.** It's now in `READ_SCOPES`, so every existing install
+  (Jarvus + CfP) shows `doctor: scopes warn missing files:read` until re-installed. The discovery path
+  keeps working without it; only `download` is gated.
+- **Two validation criteria are intentionally left unchecked** — the real-bytes download happy path and
+  `FILE_NOT_FOUND`/tombstone handling. Both are unreachable until a workspace grants `files:read` (the
+  scope gate fires first). The code paths are straightforward and the pure seams (`formatSize`,
+  `summarizeFiles`, `toFileMeta` incl. tombstone) are unit-tested; the live end-to-end fetch is the
+  open item. See Follow-ups.
+- **`file_access`/`mode: tombstone`** mark a file unavailable; surfaced as `(unavailable) [F-id]` so the
+  agent still knows something was attached.
 
 ## Follow-ups
 
-(Populated at closeout.)
+- **Complete the real-bytes download verification once `files:read` is granted** — re-install the
+  Slack app(s) with the new scope, then download the CfP thread screenshots (`F0B8Q0DCAA3`,
+  `F0B9ZNJ1EBS`) and confirm they open as JPEGs, plus exercise `FILE_NOT_FOUND` with a bogus id.
+  Tracked as: None (no issue filed; it's a one-command check gated on a manual OAuth re-install).
