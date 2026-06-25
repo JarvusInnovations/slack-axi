@@ -2,8 +2,8 @@ import { AxiError } from "axi-sdk-js";
 import { takeBool, takeFlag } from "../flags.js";
 import { encodeObject, joinBlocks, renderHelp, renderList, truncate } from "../output.js";
 import { activeSession, type Session } from "../session.js";
-import { allCachedUsers, ensureUsers, type UserMeta } from "../slack/cache.js";
-import { formatText, userName } from "../slack/format.js";
+import { allCachedUsers, ensureUsersByIds, type UserMeta } from "../slack/cache.js";
+import { formatText, mentionedUserIds, userName } from "../slack/format.js";
 import { getPermalink } from "../slack/permalink.js";
 import { summarizeReactions } from "../slack/reactions.js";
 import { channelLabel, resolveChannel } from "../slack/resolve.js";
@@ -71,7 +71,15 @@ export async function readCommand(args: string[]): Promise<string> {
   const complete = total <= f.limit;
   const displayed = complete ? parents : parents.slice(-f.limit);
 
-  await ensureUsers(session);
+  // Pre-fetch inlined replies so every author/mention id — including external/shared-channel authors
+  // buried in threads — can be hydrated in a single pass before we label anything.
+  const repliesByParent = new Map<string, Msg[]>();
+  if (f.threads === "full") {
+    for (const parent of displayed) {
+      if (parent.replyCount > 0) repliesByParent.set(parent.ts, await fetchReplies(session, channel.id, parent.ts));
+    }
+  }
+  await ensureUsersByIds(session, collectUserIds([...displayed, ...[...repliesByParent.values()].flat()]));
   const users = allCachedUsers(session.teamId);
 
   // Build date-grouped blocks: each displayed parent followed by its inlined replies (a thread is a unit).
@@ -82,8 +90,9 @@ export async function readCommand(args: string[]): Promise<string> {
     rows.push(await buildRow(session, channel.id, parent, users, window.tz, f, false));
 
     if (parent.replyCount > 0 && f.threads === "full") {
-      const replies = await fetchReplies(session, channel.id, parent.ts);
-      for (const r of replies) rows.push(await buildRow(session, channel.id, r, users, window.tz, f, true));
+      for (const r of repliesByParent.get(parent.ts) ?? []) {
+        rows.push(await buildRow(session, channel.id, r, users, window.tz, f, true));
+      }
     } else if (parent.replyCount > 0 && f.threads === "summary") {
       rows.push({ time: "", author: "", text: `↳ ${parent.replyCount} repl${parent.replyCount === 1 ? "y" : "ies"} (use \`thread ${channel.id} ${parent.ts}\`)`, ts: "" });
     }
@@ -126,7 +135,7 @@ export async function threadCommand(args: string[]): Promise<string> {
   const msgs = await fetchThread(session, channel.id, dottedTs(ts));
   if (msgs.length === 0) throw new AxiError("Thread not found", "MESSAGE_NOT_FOUND", ["Check the ts and channel"]);
 
-  await ensureUsers(session);
+  await ensureUsersByIds(session, collectUserIds(msgs));
   const users = allCachedUsers(session.teamId);
   const tz = "America/New_York";
   const rows = await Promise.all(
@@ -243,6 +252,16 @@ function authorName(msg: Msg, users: Record<string, UserMeta>): string {
   if (msg.user) return userName(msg.user, users);
   if (msg.botId) return "(bot)";
   return "(system)";
+}
+
+/** Every user id referenced across a set of messages — authors plus in-text `<@U…>` mentions. */
+export function collectUserIds(msgs: Msg[]): Set<string> {
+  const ids = new Set<string>();
+  for (const m of msgs) {
+    if (m.user) ids.add(m.user);
+    for (const id of mentionedUserIds(m.text)) ids.add(id);
+  }
+  return ids;
 }
 
 function indentLines(text: string, spaces: number): string {

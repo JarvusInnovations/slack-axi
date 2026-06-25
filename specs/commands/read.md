@@ -21,7 +21,10 @@ slack-axi thread <channel> <ts>
 - `conversations.history` for the resolved channel over the resolved `[oldest, latest)` window,
   paginated to completion.
 - `conversations.replies` for each in-window parent with `reply_count > 0` (per `--threads`).
-- User cache for author names; permalink per message.
+- User cache for author names, with an on-demand `users.info` fallback for external/shared-channel
+  authors and mentioned users absent from the bulk roster (all referenced ids hydrated in one batched
+  pass before rendering); permalink per message. See
+  [resolution-and-caching.md](../behaviors/resolution-and-caching.md).
 
 ## Output Rules
 
@@ -62,8 +65,9 @@ help[1]:
   messages, with a `help[]` hint to raise the limit or narrow the window.
 - Empty window → definitive empty state naming the channel and resolved range; exit 0.
 - Message text has Slack markup resolved for readability: `<@U…>` → `@name`, `<#C…|name>` → `#name`,
-  `<url|label>` → `label`, `&amp;/&lt;/&gt;` decoded. External (Slack Connect) users not in the
-  workspace directory fall back to their raw id.
+  `<url|label>` → `label`, `&amp;/&lt;/&gt;` decoded. External (Slack Connect) / guest authors and
+  mentions resolve via the `users.info` fallback; an id that genuinely can't be resolved renders
+  `Uxxxx (unresolved)` — never a bare id and never a guessed name.
 - `--cite` inlines a `permalink` column for bulk-ingest; `--threads full|summary|none`,
   `--exclude-bots` (count reported as `bot_filtered`), `--tz <zone>`, `--full` (untruncated text).
 - `ts` is accepted by `thread`/`cite` (and later `react`/`draft --reply`) in either dotless

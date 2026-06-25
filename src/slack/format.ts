@@ -1,9 +1,23 @@
 import type { UserMeta } from "./cache.js";
 
-/** A human label for a user id from a pre-loaded users map (display → real → handle → id). */
+/**
+ * How a user id that can't be resolved to a name is rendered. Marked explicitly so a consumer never
+ * mistakes a raw id for a resolved handle (and an agent never feels licensed to guess a name for it).
+ * Display-only: this string must never be parsed back into an id — see `resolveUserId`.
+ */
+export function unresolvedLabel(id: string): string {
+  return `${id} (unresolved)`;
+}
+
+/** A human label for a user id from a pre-loaded users map (display → real → handle → unresolved). */
 export function userName(id: string, users: Record<string, UserMeta>): string {
   const u = users[id];
-  return u ? u.display_name || u.real_name || u.name || id : id;
+  return (u && (u.display_name || u.real_name || u.name)) || unresolvedLabel(id);
+}
+
+/** Slack user-mention ids referenced in message markup (`<@U…>`), for cache hydration. */
+export function mentionedUserIds(text: string): string[] {
+  return [...text.matchAll(/<@(U[A-Z0-9]+)(?:\|[^>]*)?>/g)].map((m) => m[1]);
 }
 
 /**

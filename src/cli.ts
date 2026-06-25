@@ -17,12 +17,13 @@ import { readCommand, READ_HELP, threadCommand, THREAD_HELP } from "./commands/r
 import { reactionsCommand, REACTIONS_HELP } from "./commands/reactions.js";
 import { searchCommand, SEARCH_HELP } from "./commands/search.js";
 import { setupCommand, SETUP_HELP } from "./commands/setup.js";
+import { userCommand, USER_HELP } from "./commands/user.js";
 import { draftCommand, DRAFT_HELP, reactCommand, REACT_HELP } from "./commands/write.js";
 import { DESCRIPTION, readVersion } from "./meta.js";
 
 export const TOP_HELP = `usage: slack-axi [command] [args] [flags]
-commands[15]:
-  (none)=home, auth, doctor, channels, dms, members, read, thread, cite, search, catchup, react, reactions, draft, setup
+commands[16]:
+  (none)=home, auth, doctor, channels, dms, members, user, read, thread, cite, search, catchup, react, reactions, draft, setup
 flags[2]:
   --team <id> (per-command), --help, -v/--version
 examples:
@@ -41,6 +42,7 @@ const COMMAND_HELP: Record<string, string> = {
   channels: CHANNELS_HELP,
   dms: DMS_HELP,
   members: MEMBERS_HELP,
+  user: USER_HELP,
   cache: CACHE_HELP,
   read: READ_HELP,
   thread: THREAD_HELP,
@@ -65,6 +67,7 @@ export async function main(): Promise<void> {
       channels: (args) => channelsCommand(args),
       dms: (args) => dmsCommand(args),
       members: (args) => membersCommand(args),
+      user: (args) => userCommand(args),
       cache: (args) => cacheCommand(args),
       read: (args) => readCommand(args),
       thread: (args) => threadCommand(args),

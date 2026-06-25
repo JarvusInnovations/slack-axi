@@ -3,14 +3,17 @@ import { takeBool, takeFlag } from "../flags.js";
 import { encodeBlock, joinBlocks, renderHelp, renderList, truncate } from "../output.js";
 import { activeSession, type Session } from "../session.js";
 import {
+  allCachedUsers,
   cachedChannels,
   ensureUsers,
+  ensureUsersByIds,
   getChannels,
   refreshAllChannels,
   type ChannelMeta,
   type ChannelType,
 } from "../slack/cache.js";
-import { channelLabel, fuzzyChannelMatches, resolveChannel, userLabel } from "../slack/resolve.js";
+import { userName } from "../slack/format.js";
+import { channelLabel, fuzzyChannelMatches, resolveChannel } from "../slack/resolve.js";
 
 export const CHANNELS_HELP = `usage: slack-axi channels [flags]
 Lists the conversations you belong to across ALL types (public, private, group DMs, DMs).
@@ -37,10 +40,12 @@ function parseLimit(value: string | undefined, fallback: number): number {
 }
 
 export const DMS_HELP = `usage: slack-axi dms
-Lists your direct messages (im) and group DMs (mpim) with participant names resolved.`;
+Lists your direct messages (im) and group DMs (mpim), participant names resolved where known.`;
 
 export const MEMBERS_HELP = `usage: slack-axi members <channel>
-Lists the members of a channel (#name, name, or id), names resolved.`;
+Lists the members of a channel (#name, name, or id). Names are resolved where known — including
+external/shared-channel and guest members via on-demand lookup; any id that can't be resolved is
+shown as \`Uxxxx (unresolved)\` rather than implying it's a handle.`;
 
 const TYPE_ORDER: Record<ChannelType, number> = { public: 0, private: 1, mpim: 2, im: 3 };
 
@@ -158,8 +163,12 @@ export async function membersCommand(args: string[]): Promise<string> {
   const ids = await listMembers(session, channel.id);
   if (ids.length === 0) return encodeBlock("members", `0 members in ${await channelLabel(session, channel)}`);
 
-  await ensureUsers(session);
-  const labeled = await Promise.all(ids.map(async (id) => ({ user: id, name: await userLabel(session, id) })));
+  // Hydrate every member id in one batched pass (external/shared-channel members resolve via the
+  // users.info fallback), then label synchronously — calling the async per-id userLabel here would
+  // race concurrent cache writes.
+  await ensureUsersByIds(session, ids);
+  const users = allCachedUsers(session.teamId);
+  const labeled = ids.map((id) => ({ user: id, name: userName(id, users) }));
   labeled.sort((a, b) => a.name.localeCompare(b.name));
   const rows = labeled.slice(0, limit);
 
