@@ -174,10 +174,12 @@ async function buildRow(
 ): Promise<Record<string, unknown>> {
   const author = msg.user ? userName(msg.user, users) : msg.botId ? "(bot)" : "(system)";
   const replyNote = msg.replyCount > 0 ? ` [+${msg.replyCount} repl${msg.replyCount === 1 ? "y" : "ies"}]` : "";
+  const fileCount = msg.files?.length ?? 0;
+  const fileNote = fileCount > 0 ? ` [+${fileCount} file${fileCount === 1 ? "" : "s"}]` : "";
   const row: Record<string, unknown> = {
     time: formatDateTime(tsToEpochMs(msg.ts), tz),
     author,
-    text: truncate(formatText(msg.text, users)) + replyNote,
+    text: truncate(formatText(msg.text, users)) + replyNote + fileNote,
     ts: handle(msg.ts),
   };
   if (cite) row.permalink = await getPermalink(session, channelId, msg.ts);

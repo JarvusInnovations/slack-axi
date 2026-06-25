@@ -1,4 +1,5 @@
 import type { Session } from "../session.js";
+import { type FileMeta, toFileMeta } from "./files.js";
 import { type ReactionCount, toReactionCount } from "./reactions.js";
 import { epochMsToTs, tsExclusiveBefore } from "./time.js";
 
@@ -14,6 +15,8 @@ export interface Msg {
   latestReply?: string;
   /** Counts only — the embedded reactor list is truncated, so we drop it here. See reactions.ts. */
   reactions?: ReactionCount[];
+  /** Attachment metadata (no bytes); the `id` is the handle for `download`. See files.ts. */
+  files?: FileMeta[];
 }
 
 export function isBot(msg: Msg): boolean {
@@ -32,6 +35,9 @@ function toMsg(raw: Record<string, unknown>): Msg {
     ...(typeof raw.latest_reply === "string" ? { latestReply: raw.latest_reply } : {}),
     ...(Array.isArray(raw.reactions)
       ? { reactions: (raw.reactions as Record<string, unknown>[]).map(toReactionCount) }
+      : {}),
+    ...(Array.isArray(raw.files) && raw.files.length > 0
+      ? { files: (raw.files as Record<string, unknown>[]).map(toFileMeta) }
       : {}),
   };
 }
