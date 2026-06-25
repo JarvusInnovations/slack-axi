@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 depends: [03-read, 02-discovery]
 specs:
   - specs/behaviors/resolution-and-caching.md
@@ -9,6 +9,7 @@ specs:
   - specs/commands/catchup.md
   - specs/architecture.md
 issues: [10]
+pr: https://github.com/JarvusInnovations/slack-axi/pull/11
 ---
 
 # 10 — resolve external / shared-channel / guest user ids
@@ -139,8 +140,21 @@ The spec edits land first (own PR / earlier commit, per the spec-first rule), th
 
 ## Notes
 
-(Populated at closeout.)
+- **`team_id` mismatch is the external signal, not `is_stranger`.** Live probe of the #septa-pathways
+  externals showed `is_stranger: false` for verified Slack Connect members; their `team_id`
+  (`T01F0DWNU7R`) differs from the workspace (`T024GATE8`). The derivation keeps `is_stranger` as a
+  secondary OR but leans on the team mismatch. Worth remembering if external detection ever regresses.
+- **`users.profile.get` turned out unnecessary.** `users.info` already returns `profile.title` and
+  `profile.email` (the latter only with `users:read.email`), so the `user` command reads everything
+  from one call rather than the two the issue suggested.
+- **Email scope left out of `REQUIRED_SCOPES` deliberately.** Adding `users:read.email` would make
+  `missingScopes`/`doctor` flag every existing install as under-scoped. Email is gated on field
+  presence instead (shown when the API returns it, with a `help[]` note otherwise).
+- **Negative cache lives in `users.json` under `misses` (15-min TTL); a full `users.list` refresh
+  clears it.** Verified live: a bogus id costs one `users.info` call, then zero on re-hydrate.
 
 ## Follow-ups
 
-(Populated at closeout.)
+- **Surface `users:read.email` as an advisory (not required) scope in `doctor`** so an operator who
+  wants emails knows to grant it. Deliberately not done here to keep this change non-breaking.
+  Tracked as: None (no issue filed; revisit if email lookup becomes a common workflow).
