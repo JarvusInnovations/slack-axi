@@ -3,6 +3,7 @@ import { takeBool, takeFlag } from "../flags.js";
 import { encodeObject, joinBlocks, renderHelp, renderList, truncate } from "../output.js";
 import { activeSession, type Session } from "../session.js";
 import { allCachedUsers, ensureUsersByIds, type UserMeta } from "../slack/cache.js";
+import { summarizeFiles } from "../slack/files.js";
 import { formatText, mentionedUserIds, userName } from "../slack/format.js";
 import { getPermalink } from "../slack/permalink.js";
 import { summarizeReactions } from "../slack/reactions.js";
@@ -107,7 +108,8 @@ export async function readCommand(args: string[]): Promise<string> {
   // reaction, and then uniform across every row (empty for those with none) so the compact TOON table
   // is preserved. See specs/behaviors/reactions.md.
   const allRows = [...groups.values()].flat();
-  const anyReactions = fillReactionColumn(allRows);
+  const anyReactions = fillUniformColumn(allRows, "reactions");
+  const anyFiles = fillUniformColumn(allRows, "files");
 
   const blocks: string[] = [encodeObject(header)];
   for (const [date, rows] of groups) blocks.push(`${date}:\n${indentLines(renderList("messages", rows), 2)}`);
@@ -115,6 +117,7 @@ export async function readCommand(args: string[]): Promise<string> {
   const help = [
     f.threads !== "full" ? `Run \`slack-axi thread ${channel.id} <ts>\` to expand a thread` : undefined,
     anyReactions ? `Run \`slack-axi reactions ${channel.id} <ts>\` to see who reacted` : undefined,
+    anyFiles ? "Run `slack-axi download <file-id...>` to fetch attachments (the [F…] ids above)" : undefined,
     !complete ? `Showing the most recent ${f.limit} of ${total}; raise \`--limit <n>\` or narrow the window` : undefined,
     !f.cite ? `Run \`slack-axi cite ${channel.id} <ts...>\` for permalinks to messages you cite` : undefined,
   ].filter((l): l is string => Boolean(l));
@@ -148,15 +151,22 @@ export async function threadCommand(args: string[]): Promise<string> {
         permalink: await getPermalink(session, channel.id, m.ts),
       };
       if (m.reactions && m.reactions.length > 0) row.reactions = summarizeReactions(m.reactions);
+      if (m.files && m.files.length > 0) row.files = summarizeFiles(m.files);
       return row;
     }),
   );
-  const anyReactions = fillReactionColumn(rows);
+  const anyReactions = fillUniformColumn(rows, "reactions");
+  const anyFiles = fillUniformColumn(rows, "files");
+
+  const help = [
+    anyReactions ? `Run \`slack-axi reactions ${channel.id} <ts>\` to see who reacted` : undefined,
+    anyFiles ? "Run `slack-axi download <file-id...>` to fetch attachments (the [F…] ids above)" : undefined,
+  ].filter((l): l is string => Boolean(l));
 
   return joinBlocks(
     encodeObject({ channel: `${await channelLabel(session, channel)} (${channel.id})`, replies: msgs.length - 1 }),
     renderList("messages", rows),
-    anyReactions ? renderHelp([`Run \`slack-axi reactions ${channel.id} <ts>\` to see who reacted`]) : "",
+    help.length > 0 ? renderHelp(help) : "",
   );
 }
 
@@ -229,22 +239,23 @@ async function buildRow(
   };
   if (f.cite) row.permalink = await getPermalink(session, channelId, msg.ts);
   if (msg.reactions && msg.reactions.length > 0) row.reactions = summarizeReactions(msg.reactions);
+  if (msg.files && msg.files.length > 0) row.files = summarizeFiles(msg.files);
   return row;
 }
 
 /**
- * Make the inline reactions column uniform (auto-when-present): if any row carries a `reactions`
- * summary, ensure every row has the key (empty string when it had none), appended last so the TOON
- * table stays compact. Returns whether the column was applied. See specs/behaviors/reactions.md.
+ * Make an inline column uniform (auto-when-present): if any row carries a non-empty string under
+ * `key`, ensure every row has the key (empty string when it had none) so the TOON table stays compact;
+ * otherwise drop the key entirely so the column vanishes. Returns whether the column was applied. Used
+ * for the `reactions` and `files` columns. See specs/behaviors/reactions.md + files.md.
  */
-function fillReactionColumn(rows: Array<Record<string, unknown>>): boolean {
-  const any = rows.some((r) => typeof r.reactions === "string" && r.reactions.length > 0);
+function fillUniformColumn(rows: Array<Record<string, unknown>>, key: string): boolean {
+  const any = rows.some((r) => typeof r[key] === "string" && (r[key] as string).length > 0);
   if (!any) {
-    // Drop any stray empty key so a reaction-free view shows no column at all.
-    for (const r of rows) delete r.reactions;
+    for (const r of rows) delete r[key];
     return false;
   }
-  for (const r of rows) if (typeof r.reactions !== "string") r.reactions = "";
+  for (const r of rows) if (typeof r[key] !== "string") r[key] = "";
   return true;
 }
 

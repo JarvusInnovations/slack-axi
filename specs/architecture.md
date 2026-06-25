@@ -47,7 +47,7 @@ slack-axi/
     cli.ts                    # runAxiCli({ home, commands, getCommandHelp, resolveContext })
     config.ts                 # XDG paths, team/token/cache helpers, default-team, env resolution
     commands/
-      home.ts  auth.ts  doctor.ts  channels.ts  user.ts  read.ts  search.ts  write.ts  reactions.ts  setup.ts
+      home.ts  auth.ts  doctor.ts  channels.ts  user.ts  read.ts  search.ts  write.ts  reactions.ts  download.ts  setup.ts
     slack/
       client.ts               # @slack/web-api WebClient factory per team (token injection)
       resolve.ts              # #name|name|id → channel; user id → name (cache-backed, users.info fallback)
@@ -55,6 +55,7 @@ slack-axi/
       time.ts                 # "7d"/"24h"/date → Slack ts; resolved-range formatting (Eastern, year)
       threads.ts              # history+replies merge + inline rendering (carries reaction counts)
       reactions.ts            # reactions.get full=true → complete reactor roster; inline counts summary
+      files.ts                # file metadata off messages + files.info/url_private_download byte fetch
       errors.ts               # translateSlackError(code) → AxiError
     output/
       schema.ts               # FieldDef builders (field, truncated, mapEnum, computed)

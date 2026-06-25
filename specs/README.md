@@ -23,6 +23,7 @@ specs/
     channels.md      # channels / dms / members / search channels
     user.md          # user <id|@handle> lookup (external/guest resolution)
     read.md          # read <channel> + thread <channel> <ts>
+    download.md      # download <file-id...> — fetch attachment bytes to disk
     search.md        # search.messages
     cite.md          # reconstruct permalinks / HQ sources from ts handles
     write.md         # react / draft / draft send
@@ -32,6 +33,7 @@ specs/
     time-and-completeness.md   # human time in, resolved-range echo, pagination-to-completion
     resolution-and-caching.md  # #name|id channels, user-id→name, local caches
     threads.md             # inlining replies under parents
+    files.md               # attachments surfaced inline; download bytes to disk
     permalinks.md          # ready-to-use permalink on every message
     errors.md              # Slack error → AxiError translation, exit codes
     auth-and-workspaces.md # token resolution order, multi-workspace, write-protection

@@ -55,6 +55,9 @@ boundary's wall-clock by an hour — coverage stays exact; only a displayed date
   [time-and-completeness.md](../behaviors/time-and-completeness.md).
 - **Threads are not inlined** (kept cheap across many channels): a `[+N replies]` note marks a message
   with a thread, and `help[]` points to `read <channel>` / `thread <channel> <ts>` to expand one.
+- **Attachments are flagged, not listed** (the sweep stays lean): a message with files gets a
+  `[+N file(s)]` note; the agent runs `read`/`thread` on that channel to get the file ids, then
+  `download`. See [files.md](../behaviors/files.md).
 - `--limit-per <n>` (default 50) caps messages **per channel**; when exceeded, that channel's block is
   marked incomplete with its total — never a silent per-channel cap.
 
