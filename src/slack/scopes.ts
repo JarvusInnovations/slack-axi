@@ -12,6 +12,7 @@ export const READ_SCOPES = [
   "search:read",
   "users:read",
   "reactions:read",
+  "files:read",
 ] as const;
 
 /** Scopes needed for reactions + drafts (read + safe-draft capability set). */

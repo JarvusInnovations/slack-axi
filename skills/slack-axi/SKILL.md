@@ -38,6 +38,15 @@ arguments accept `#name`, bare `name`, or an id (`C…`/`G…`/`D…`) interchan
 - `npx -y slack-axi thread <channel> <ts>` — read one thread fully.
 - `read`/`thread` show a counts-only `reactions` column (`:emoji:×N`) when any message in view has
   reactions — free, already in the data. For **who** reacted, use the `reactions` command below.
+- `read`/`thread` also show a `files` column when a message has attachments — `name (type, size) [F-id]`,
+  free from the same payload. Use the `F-id` with `download` to fetch the bytes.
+
+## Files / attachments
+
+- `npx -y slack-axi download <file-id…> [--out <dir>]` — fetch one or more attachments (file ids from a
+  `read`/`thread` files column) to local files; prints the saved absolute paths so you can open them
+  (e.g. to view a screenshot). Read-only against Slack; needs the `files:read` scope. Downloading is
+  explicit — reading a thread lists attachments but never fetches their bytes on its own.
 
 ## Reactions (who reacted)
 

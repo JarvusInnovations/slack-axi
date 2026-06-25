@@ -78,6 +78,12 @@ help[1]:
   request. The reactor *names* are not shown inline (the embedded roster is truncated); a `help[]`
   pointer steers to `reactions <channel> <ts>` for the complete, identity-resolved roster. See
   [reactions.md](../behaviors/reactions.md). `thread` carries the same inline column.
+- **Files, inline:** when any message in the view has an attachment, a `files` column is added (uniform
+  across rows, empty for messages with none) listing each file as `name (filetype, size) [F-id]`. This
+  rides on the history/replies payload already fetched — no extra call and no `files:read` scope to
+  *see* the attachment. The `F-id` is the handle for `slack-axi download <file-id…>`, which fetches the
+  bytes to a local path. An inaccessible/tombstoned file is shown as `(unavailable) [F-id]`. See
+  [files.md](../behaviors/files.md). `thread` carries the same column.
 
 ## Actions
 

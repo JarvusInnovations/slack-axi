@@ -19,7 +19,9 @@ and `slack/client.ts` (WebClient per team).
 - User token (`xoxp-`) — required because `search:read` is user-token-only and reading the user's
   private channels / group DMs / DMs requires acting as the user.
 - Scopes: `channels:read groups:read im:read mpim:read channels:history groups:history im:history
-  mpim:history search:read users:read reactions:read` + `reactions:write chat:write`.
+  mpim:history search:read users:read reactions:read files:read` + `reactions:write chat:write`.
+  (`files:read` is needed to download attachment bytes — see [files.md](files.md); message text and
+  file *metadata* need only the history scopes.)
 - `doctor` compares granted scopes (from `auth.test`/stored metadata) against this required set and
   reports any gap with the exact missing scope.
 

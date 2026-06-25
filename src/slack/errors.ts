@@ -50,6 +50,13 @@ export function slackErrorToAxi(code: string, context: { team?: string; channel?
         "MESSAGE_NOT_FOUND",
         ["Check the ts; run `slack-axi read <channel>` to find the message"],
       );
+    case "file_not_found":
+    case "file_deleted":
+      return new AxiError(
+        "File not found",
+        "FILE_NOT_FOUND",
+        ["Check the file id from a `read`/`thread` files column; it may have been deleted"],
+      );
     case "ratelimited":
       return new AxiError(
         "Slack rate limit exceeded after retries",
