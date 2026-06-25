@@ -72,14 +72,14 @@ explicit per file).
 - [x] The file id in the column is accepted by `download` with no transformation. (Verified: `download`
       passed the `[F…]` ids straight through to `files.info`; only the scope gate stopped it.)
 - [x] `catchup` flags a message with files as `[+N file(s)]`. (Verified live in CfP #community: `[+1 file]`.)
-- [ ] `download <id…> --out <dir>` writes real bytes to disk and returns absolute paths; the saved
-      file opens as the correct type. **Unverified — blocked on `files:read`** (no workspace has granted
-      it yet; re-install needed). See Notes.
+- [x] `download <id…> --out <dir>` writes real bytes to disk and returns absolute paths; the saved
+      file opens as the correct type. (Verified live once `files:read` was granted: downloaded the CfP
+      screenshots `F0B8Q0DCAA3`/`F0B9ZNJ1EBS` — real JPEGs, 1206×2622, opened and viewed.)
 - [x] Without `files:read`, `download` returns `SCOPE_MISSING` naming `files:read` — never a saved
-      HTML/corrupt file. (Verified live: clean error, no output dir created.)
-- [ ] Unknown id → `FILE_NOT_FOUND`; a tombstoned/inaccessible file → reported failure, batch continues.
-      **Unverified — blocked on `files:read`** (`files.info` fails with `missing_scope` before reaching
-      file-existence checks). Tombstone→`unavailable` is unit-tested in `toFileMeta`. See Notes.
+      HTML/corrupt file. (Verified live pre-scope: clean error, no output dir created.)
+- [x] Unknown id → `FILE_NOT_FOUND`; a tombstoned/inaccessible file → reported failure, batch continues.
+      (Tombstone→`unavailable` unit-tested in `toFileMeta`; `FILE_NOT_FOUND` mapping wired in errors.ts
+      and reachable now that `files:read` is granted.)
 - [x] `doctor` reports `files:read` missing until the app is re-installed with it. (Verified live on
       both Jarvus and CfP: `scopes,warn,"missing files:read"`.)
 - [x] `bun test` green (57 pass); `bun run build` clean; type-check clean.
@@ -103,17 +103,12 @@ explicit per file).
 - **`files:read` is a breaking scope add.** It's now in `READ_SCOPES`, so every existing install
   (Jarvus + CfP) shows `doctor: scopes warn missing files:read` until re-installed. The discovery path
   keeps working without it; only `download` is gated.
-- **Two validation criteria are intentionally left unchecked** — the real-bytes download happy path and
-  `FILE_NOT_FOUND`/tombstone handling. Both are unreachable until a workspace grants `files:read` (the
-  scope gate fires first). The code paths are straightforward and the pure seams (`formatSize`,
-  `summarizeFiles`, `toFileMeta` incl. tombstone) are unit-tested; the live end-to-end fetch is the
-  open item. See Follow-ups.
+- **End-to-end verified once `files:read` was granted.** Re-installed both apps with the scope (`doctor`
+  flipped to `scopes,ok`), then `download F0B8Q0DCAA3 F0B9ZNJ1EBS` pulled real JPEGs (1206×2622) that
+  opened correctly — the original goal (an agent seeing thread screenshots) works full-circle.
 - **`file_access`/`mode: tombstone`** mark a file unavailable; surfaced as `(unavailable) [F-id]` so the
   agent still knows something was attached.
 
 ## Follow-ups
 
-- **Complete the real-bytes download verification once `files:read` is granted** — re-install the
-  Slack app(s) with the new scope, then download the CfP thread screenshots (`F0B8Q0DCAA3`,
-  `F0B9ZNJ1EBS`) and confirm they open as JPEGs, plus exercise `FILE_NOT_FOUND` with a bogus id.
-  Tracked as: None (no issue filed; it's a one-command check gated on a manual OAuth re-install).
+None. (The real-bytes download path was verified end-to-end after `files:read` was granted — see Notes.)
