@@ -51,11 +51,17 @@ export async function reactCommand(args: string[]): Promise<string> {
   } catch (err) {
     const code = (err as { data?: { error?: string } })?.data?.error;
     if (code === "already_reacted") {
-      return encodeObject({ reaction: `:${name}: already on ${await channelLabel(session, channel)} message ${handle(ts)} (no-op)` });
+      return encodeObject({
+        reaction: `:${name}: already on ${await channelLabel(session, channel)} message ${handle(ts)} (no-op)`,
+      });
     }
     throw toAxiError(err, { team: session.teamId, channel: channelArg });
   }
-  return encodeObject({ reaction: `:${name}: added`, channel: `${await channelLabel(session, channel)} (${channel.id})`, ts: handle(ts) });
+  return encodeObject({
+    reaction: `:${name}: added`,
+    channel: `${await channelLabel(session, channel)} (${channel.id})`,
+    ts: handle(ts),
+  });
 }
 
 export async function draftCommand(args: string[]): Promise<string> {
@@ -101,7 +107,9 @@ async function draftCreate(args: string[]): Promise<string> {
       ...(draft.reply_to ? { reply_to: handle(draft.reply_to) } : {}),
       text: draft.text,
     }),
-    renderHelp([`Review it, then post with \`slack-axi draft send ${draft.id}\` (or discard with \`draft discard ${draft.id}\`)`]),
+    renderHelp([
+      `Review it, then post with \`slack-axi draft send ${draft.id}\` (or discard with \`draft discard ${draft.id}\`)`,
+    ]),
   );
 }
 
@@ -110,15 +118,23 @@ async function draftSend(args: string[]): Promise<string> {
   if (!id) throw new AxiError("usage: slack-axi draft send <draft-id>", "USAGE", []);
   const draft = getDraft(id);
   if (!draft) {
-    throw new AxiError(`Draft ${id} not found`, "DRAFT_NOT_FOUND", ["Run `slack-axi draft list` to see pending drafts"]);
+    throw new AxiError(`Draft ${id} not found`, "DRAFT_NOT_FOUND", [
+      "Run `slack-axi draft list` to see pending drafts",
+    ]);
   }
   if (draft.sent) {
-    return encodeObject({ sent: `${id} already sent (no-op)`, ts: handle(draft.sent.ts), permalink: draft.sent.permalink });
+    return encodeObject({
+      sent: `${id} already sent (no-op)`,
+      ts: handle(draft.sent.ts),
+      permalink: draft.sent.permalink,
+    });
   }
   if (!getStoredToken(draft.team)) {
-    throw new AxiError(`Draft's workspace ${draft.team} is no longer authenticated`, "TEAM_NOT_FOUND", [
-      "Re-auth with `slack-axi auth login`, or discard the draft",
-    ]);
+    throw new AxiError(
+      `Draft's workspace ${draft.team} is no longer authenticated`,
+      "TEAM_NOT_FOUND",
+      ["Re-auth with `slack-axi auth login`, or discard the draft"],
+    );
   }
 
   // Send to the draft's own workspace (explicit team satisfies write-protection).
@@ -139,7 +155,12 @@ async function draftSend(args: string[]): Promise<string> {
   draft.sent = { ts, permalink, at: new Date().toISOString() };
   writeDraft(draft);
 
-  return encodeObject({ sent: id, channel: `${draft.channel} (${draft.channel_id})`, ts: handle(ts), permalink });
+  return encodeObject({
+    sent: id,
+    channel: `${draft.channel} (${draft.channel_id})`,
+    ts: handle(ts),
+    permalink,
+  });
 }
 
 function draftList(): string {

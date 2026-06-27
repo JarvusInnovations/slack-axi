@@ -108,7 +108,10 @@ function setup(args: string[]): string {
 
   if (progress.next === "app_created") {
     blocks.push(
-      encodeBlock("files", { manifest: collapseHome(manifestFile), setup_page: collapseHome(htmlFile) }),
+      encodeBlock("files", {
+        manifest: collapseHome(manifestFile),
+        setup_page: collapseHome(htmlFile),
+      }),
     );
     help = [
       `Open ${collapseHome(htmlFile)} (or ${NEW_APP_URL}) → "From an app manifest" → pick your workspace → paste the manifest from ${collapseHome(manifestFile)}`,
@@ -185,7 +188,9 @@ async function login(args: string[]): Promise<string> {
 
   const help =
     missing.length > 0
-      ? renderHelp([`Add missing scopes (${missing.join(", ")}) via \`slack-axi auth setup\`, then re-install + re-login`])
+      ? renderHelp([
+          `Add missing scopes (${missing.join(", ")}) via \`slack-axi auth setup\`, then re-install + re-login`,
+        ])
       : "";
   return joinBlocks(summary, help);
 }
@@ -217,7 +222,11 @@ function use(args: string[]): string {
   const known = listWorkspaces().some((w) => w.team_id === team);
   if (!known) {
     throw new AxiError(`Workspace ${team} is not authenticated`, "TEAM_NOT_FOUND", [
-      `Authenticated: ${listWorkspaces().map((w) => w.team_id).join(", ") || "(none)"}`,
+      `Authenticated: ${
+        listWorkspaces()
+          .map((w) => w.team_id)
+          .join(", ") || "(none)"
+      }`,
     ]);
   }
   if (getDefaultTeam() === team) return encodeBlock("default", `${team} already default (no-op)`);

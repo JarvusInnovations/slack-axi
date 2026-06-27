@@ -27,7 +27,9 @@ function toReaction(raw: Record<string, unknown>): Reaction {
   return {
     name: typeof raw.name === "string" ? raw.name : "",
     count: typeof raw.count === "number" ? raw.count : 0,
-    users: Array.isArray(raw.users) ? raw.users.filter((u): u is string => typeof u === "string") : [],
+    users: Array.isArray(raw.users)
+      ? raw.users.filter((u): u is string => typeof u === "string")
+      : [],
   };
 }
 
@@ -45,11 +47,17 @@ export function toReactionCount(raw: Record<string, unknown>): ReactionCount {
  * truncated). Returns `null` when the channel/ts resolves to no message.
  * See specs/behaviors/reactions.md.
  */
-export async function fetchReactions(session: Session, channelId: string, ts: string): Promise<ReactedMessage | null> {
+export async function fetchReactions(
+  session: Session,
+  channelId: string,
+  ts: string,
+): Promise<ReactedMessage | null> {
   const res = await session.client.reactions.get({ channel: channelId, timestamp: ts, full: true });
   const msg = res.message as Record<string, unknown> | undefined;
   if (!msg) return null;
-  const rawReactions = Array.isArray(msg.reactions) ? (msg.reactions as Record<string, unknown>[]) : [];
+  const rawReactions = Array.isArray(msg.reactions)
+    ? (msg.reactions as Record<string, unknown>[])
+    : [];
   return {
     ts: typeof msg.ts === "string" ? msg.ts : ts,
     ...(typeof msg.user === "string" ? { user: msg.user } : {}),

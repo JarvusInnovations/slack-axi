@@ -2,9 +2,20 @@ import { AxiError } from "axi-sdk-js";
 import { takeBool, takeFlag, takeFlags } from "../flags.js";
 import { encodeObject, joinBlocks, renderHelp, renderList, truncate } from "../output.js";
 import { activeSession, type Session } from "../session.js";
-import { allCachedUsers, ensureUsers, getCachedChannel, getChannels, type UserMeta } from "../slack/cache.js";
+import {
+  allCachedUsers,
+  ensureUsers,
+  getCachedChannel,
+  getChannels,
+  type UserMeta,
+} from "../slack/cache.js";
 import { formatText, userName } from "../slack/format.js";
-import { looksLikeId, normalizeChannelArg, resolveChannel, resolveUserId } from "../slack/resolve.js";
+import {
+  looksLikeId,
+  normalizeChannelArg,
+  resolveChannel,
+  resolveUserId,
+} from "../slack/resolve.js";
 import { handle } from "../slack/ts.js";
 import { DEFAULT_TZ, formatDate, formatDateTime, parseSpanMs, tsToEpochMs } from "../slack/time.js";
 
@@ -71,14 +82,19 @@ export async function searchCommand(args: string[]): Promise<string> {
   let type: ConvType | undefined;
   if (typeFlag.value) {
     if (!CONV_TYPES.includes(typeFlag.value as ConvType)) {
-      throw new AxiError(`Unknown --type '${typeFlag.value}'`, "USAGE", ["Use one of: public, private, mpim, im"]);
+      throw new AxiError(`Unknown --type '${typeFlag.value}'`, "USAGE", [
+        "Use one of: public, private, mpim, im",
+      ]);
     }
     type = typeFlag.value as ConvType;
   }
 
   // `--limit` caps the sweep; absent means "all" (capped by the runaway ceiling).
   const limit = limitFlag.value ? Number.parseInt(limitFlag.value, 10) : undefined;
-  const cap = Number.isFinite(limit) && (limit as number) > 0 ? Math.min(limit as number, SWEEP_CEILING) : SWEEP_CEILING;
+  const cap =
+    Number.isFinite(limit) && (limit as number) > 0
+      ? Math.min(limit as number, SWEEP_CEILING)
+      : SWEEP_CEILING;
 
   const session = await activeSession({ teamFlag: team.value });
   const tz = DEFAULT_TZ;
@@ -147,15 +163,24 @@ export async function searchCommand(args: string[]): Promise<string> {
   // `complete` reflects whether the underlying sweep retrieved every match Slack has for the query; a
   // `--type` post-filter narrows what's shown but doesn't change that fact.
   header.complete = sweep.complete;
-  if (sweep.ceilingHit) header.note = `stopped at the ${SWEEP_CEILING}-match ceiling; narrow the query or window`;
+  if (sweep.ceilingHit)
+    header.note = `stopped at the ${SWEEP_CEILING}-match ceiling; narrow the query or window`;
 
   const label = files ? "files" : "matches";
   const help = [
     ...notes,
-    typeFiltered !== undefined ? `--type ${type}: kept ${rows.length} of ${sweep.items.length} retrieved` : undefined,
-    !files ? "To read a result's channel over a window, use `slack-axi read <channel> --from <date> --to <date>`" : undefined,
-    !sweep.complete ? `Showing ${sweep.items.length} of ${sweep.total}; raise \`--limit <n>\` or narrow the query` : undefined,
-    !cite ? "Add `--cite` (or run `slack-axi cite <channel> <ts>`) for permalinks to cite" : undefined,
+    typeFiltered !== undefined
+      ? `--type ${type}: kept ${rows.length} of ${sweep.items.length} retrieved`
+      : undefined,
+    !files
+      ? "To read a result's channel over a window, use `slack-axi read <channel> --from <date> --to <date>`"
+      : undefined,
+    !sweep.complete
+      ? `Showing ${sweep.items.length} of ${sweep.total}; raise \`--limit <n>\` or narrow the query`
+      : undefined,
+    !cite
+      ? "Add `--cite` (or run `slack-axi cite <channel> <ts>`) for permalinks to cite"
+      : undefined,
   ].filter((l): l is string => Boolean(l));
 
   return joinBlocks(
@@ -202,11 +227,21 @@ type FileMatch = {
  * so we loop pages to completion (or to `cap`/the ceiling) rather than depend on a cursor field the
  * response type doesn't surface. Requests `sort: timestamp` so accumulation is oldest→newest stable.
  */
-async function sweepMessages(session: Session, query: string, cap: number): Promise<Sweep<MessageMatch>> {
+async function sweepMessages(
+  session: Session,
+  query: string,
+  cap: number,
+): Promise<Sweep<MessageMatch>> {
   return paginate(cap, async (page) => {
     let res;
     try {
-      res = await session.client.search.messages({ query, count: PAGE_SIZE, page, sort: "timestamp", sort_dir: "asc" });
+      res = await session.client.search.messages({
+        query,
+        count: PAGE_SIZE,
+        page,
+        sort: "timestamp",
+        sort_dir: "asc",
+      });
     } catch (err) {
       throw scopeError(err, "search:read");
     }
@@ -222,7 +257,13 @@ async function sweepFiles(session: Session, query: string, cap: number): Promise
   return paginate(cap, async (page) => {
     let res;
     try {
-      res = await session.client.search.files({ query, count: PAGE_SIZE, page, sort: "timestamp", sort_dir: "asc" });
+      res = await session.client.search.files({
+        query,
+        count: PAGE_SIZE,
+        page,
+        sort: "timestamp",
+        sort_dir: "asc",
+      });
     } catch (err) {
       // search.files (like search.messages) is covered by search:read — files:read is not required.
       throw scopeError(err, "search:read");
@@ -323,7 +364,9 @@ function userModifier(session: Session, arg: string, notes: string[], flag: stri
   const res = resolveUserId(session, raw);
   if (res.kind === "id") return `<@${res.id}>`;
   if (res.kind === "ambiguous") {
-    notes.push(`${flag} "${raw}" matched ${res.ids.length} users; used a fuzzy name filter — pass an id to disambiguate`);
+    notes.push(
+      `${flag} "${raw}" matched ${res.ids.length} users; used a fuzzy name filter — pass an id to disambiguate`,
+    );
   } else {
     notes.push(`${flag} "${raw}" didn't match a cached user; used a fuzzy name filter`);
   }

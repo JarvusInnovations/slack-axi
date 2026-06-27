@@ -19,7 +19,9 @@ export interface Session {
  * comes from token.json; for a bare SLACK_AXI_TOKEN env (no SLACK_AXI_TEAM) it's derived via a single
  * auth.test. The teamId is the cache key, so it must be known before any read.
  */
-export async function activeSession(options: { teamFlag?: string; mutation?: boolean } = {}): Promise<Session> {
+export async function activeSession(
+  options: { teamFlag?: string; mutation?: boolean } = {},
+): Promise<Session> {
   const active = resolveActiveToken(options);
   let teamId = active.teamId;
   let teamName = active.teamName;
@@ -36,5 +38,12 @@ export async function activeSession(options: { teamFlag?: string; mutation?: boo
       throw toAxiError(err, options.teamFlag ? { team: options.teamFlag } : {});
     }
   }
-  return { token: active.token, teamId, teamName, userId, userName, client: webClient(active.token) };
+  return {
+    token: active.token,
+    teamId,
+    teamName,
+    userId,
+    userName,
+    client: webClient(active.token),
+  };
 }

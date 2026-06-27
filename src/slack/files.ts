@@ -59,7 +59,10 @@ export function summarizeFiles(files: FileMeta[]): string {
 }
 
 /** Fetch the canonical file object via `files.info` (needs `files:read`). Throws on a Slack error. */
-export async function fetchFileInfo(session: Session, id: string): Promise<Record<string, unknown>> {
+export async function fetchFileInfo(
+  session: Session,
+  id: string,
+): Promise<Record<string, unknown>> {
   const res = await session.client.files.info({ file: id });
   return (res.file ?? {}) as Record<string, unknown>;
 }
@@ -85,7 +88,11 @@ function safeName(name: string, id: string): string {
  * makes Slack answer HTTP 200 with its login HTML rather than the bytes; we detect that (content-type)
  * and raise `SCOPE_MISSING` instead of writing a corrupt file. Needs `files:read`. See files.md.
  */
-export async function downloadFile(session: Session, file: Record<string, unknown>, outDir: string): Promise<DownloadResult> {
+export async function downloadFile(
+  session: Session,
+  file: Record<string, unknown>,
+  outDir: string,
+): Promise<DownloadResult> {
   const id = typeof file.id === "string" ? file.id : "";
   const url =
     (typeof file.url_private_download === "string" && file.url_private_download) ||
@@ -101,9 +108,11 @@ export async function downloadFile(session: Session, file: Record<string, unknow
   const contentType = res.headers.get("content-type") ?? "";
   // Slack returns its login page (HTML, 200) when the token lacks files:read — never the bytes.
   if (!res.ok || contentType.includes("text/html")) {
-    throw new AxiError("Could not download file bytes — token is likely missing `files:read`", "SCOPE_MISSING", [
-      "Re-run `slack-axi auth setup`, add the `files:read` scope, and re-install the app",
-    ]);
+    throw new AxiError(
+      "Could not download file bytes — token is likely missing `files:read`",
+      "SCOPE_MISSING",
+      ["Re-run `slack-axi auth setup`, add the `files:read` scope, and re-install the app"],
+    );
   }
 
   const name = safeName(typeof file.name === "string" ? file.name : id, id);

@@ -49,7 +49,10 @@ describe("paginate (page-based sweep)", () => {
     const fetchPage = async (page: number) => {
       calls.push(page);
       const start = (page - 1) * pageSize;
-      const items = Array.from({ length: Math.max(0, Math.min(pageSize, total - start)) }, (_, i) => start + i);
+      const items = Array.from(
+        { length: Math.max(0, Math.min(pageSize, total - start)) },
+        (_, i) => start + i,
+      );
       return { items, pages: pageCount, total };
     };
     return { fetchPage, calls };
@@ -102,9 +105,21 @@ describe("resolveUserId", () => {
     const users = {
       fetched_at: Date.now(),
       users: {
-        U1: { id: "U1", name: "alice", real_name: "Alice Anderson", display_name: "alice", is_bot: false },
+        U1: {
+          id: "U1",
+          name: "alice",
+          real_name: "Alice Anderson",
+          display_name: "alice",
+          is_bot: false,
+        },
         U2: { id: "U2", name: "bob", real_name: "Bob Brown", display_name: "bobby", is_bot: false },
-        U3: { id: "U3", name: "alice2", real_name: "Alice Other", display_name: "alice", is_bot: false },
+        U3: {
+          id: "U3",
+          name: "alice2",
+          real_name: "Alice Other",
+          display_name: "alice",
+          is_bot: false,
+        },
       },
     };
     writeFileSync(join(usersDir, "users.json"), JSON.stringify(users));

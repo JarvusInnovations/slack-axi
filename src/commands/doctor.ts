@@ -41,7 +41,10 @@ export async function doctorCommand(args: string[]): Promise<string> {
     throw toAxiError(err, teamFlag ? { team: teamFlag } : {});
   }
 
-  const header = encodeBlock("workspace", `${identity.teamName} (${identity.teamId}) as ${identity.userName ?? identity.userId}`);
+  const header = encodeBlock(
+    "workspace",
+    `${identity.teamName} (${identity.teamId}) as ${identity.userName ?? identity.userId}`,
+  );
   const help =
     missing.length > 0
       ? renderHelp([`Add missing scopes via \`slack-axi auth setup\`, then re-install + re-login`])

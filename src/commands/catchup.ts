@@ -2,13 +2,27 @@ import { AxiError } from "axi-sdk-js";
 import { takeBool, takeFlag } from "../flags.js";
 import { encodeObject, joinBlocks, renderHelp, renderList, truncate } from "../output.js";
 import { activeSession, type Session } from "../session.js";
-import { allCachedUsers, ensureUsersByIds, getChannels, type ChannelMeta, type UserMeta } from "../slack/cache.js";
+import {
+  allCachedUsers,
+  ensureUsersByIds,
+  getChannels,
+  type ChannelMeta,
+  type UserMeta,
+} from "../slack/cache.js";
 import { formatText, userName } from "../slack/format.js";
 import { getPermalink } from "../slack/permalink.js";
 import { collectUserIds } from "./read.js";
 import { channelLabel, resolveChannel } from "../slack/resolve.js";
 import { fetchWindow, isBot, type Msg } from "../slack/threads.js";
-import { batchWindows, formatDate, formatDateTime, formatRange, parseSpanMs, resolveWindow, tsToEpochMs } from "../slack/time.js";
+import {
+  batchWindows,
+  formatDate,
+  formatDateTime,
+  formatRange,
+  parseSpanMs,
+  resolveWindow,
+  tsToEpochMs,
+} from "../slack/time.js";
 import { handle } from "../slack/ts.js";
 
 export const CATCHUP_HELP = `usage: slack-axi catchup [flags]
@@ -59,7 +73,12 @@ export async function catchupCommand(args: string[]): Promise<string> {
   const session = await activeSession({ teamFlag: team.value });
   // Default window for a catch-up is the last day, not the read default of 7d.
   const window = resolveWindow(
-    { since: since.value ?? (from.value || to.value ? undefined : "1d"), from: from.value, to: to.value, tz: tz.value },
+    {
+      since: since.value ?? (from.value || to.value ? undefined : "1d"),
+      from: from.value,
+      to: to.value,
+      tz: tz.value,
+    },
     Date.now(),
   );
 
@@ -67,10 +86,17 @@ export async function catchupCommand(args: string[]): Promise<string> {
   if (every.value !== undefined) {
     const everyMs = parseSpanMs(every.value);
     if (everyMs === undefined) {
-      throw new AxiError(`Invalid --every '${every.value}'`, "USAGE", ["Use a span like 1w, 3d, or 12h"]);
+      throw new AxiError(`Invalid --every '${every.value}'`, "USAGE", [
+        "Use a span like 1w, 3d, or 12h",
+      ]);
     }
     const batches = batchWindows(window.oldestMs, window.endMs, everyMs);
-    const scope = scopeSuffix({ type: type.value, match: match.value, in: inList.value, excludeBots: excludeBots.present });
+    const scope = scopeSuffix({
+      type: type.value,
+      match: match.value,
+      in: inList.value,
+      excludeBots: excludeBots.present,
+    });
     const rows = batches.map((b, i) => ({
       n: i + 1,
       from: formatDate(b.startMs, window.tz),
@@ -88,12 +114,18 @@ export async function catchupCommand(args: string[]): Promise<string> {
     );
   }
 
-  const pool = await resolveScope(session, { inList: inList.value, type: type.value, match: match.value });
+  const pool = await resolveScope(session, {
+    inList: inList.value,
+    type: type.value,
+    match: match.value,
+  });
   if (pool.length === 0) {
     return joinBlocks(
       encodeObject({ workspace: ws(session), range: formatRange(window) }),
       encodeObject({ channels: "0 channels matched the scope" }),
-      renderHelp(["Broaden with `--type public,private,mpim,im` or `--match <q>`, or pass `--in <list>`"]),
+      renderHelp([
+        "Broaden with `--type public,private,mpim,im` or `--match <q>`, or pass `--in <list>`",
+      ]),
     );
   }
   if (pool.length > maxChannels) {
@@ -120,11 +152,22 @@ export async function catchupCommand(args: string[]): Promise<string> {
   await ensureUsersByIds(session, collectUserIds(swept.flatMap((s) => s.shown)));
   const users = allCachedUsers(session.teamId);
 
-  const active: Array<{ channel: ChannelMeta; label: string; total: number; rows: Array<Record<string, unknown>> }> = [];
+  const active: Array<{
+    channel: ChannelMeta;
+    label: string;
+    total: number;
+    rows: Array<Record<string, unknown>>;
+  }> = [];
   for (const s of swept) {
     const rows: Array<Record<string, unknown>> = [];
-    for (const m of s.shown) rows.push(await buildRow(session, s.channel.id, m, users, window.tz, cite.present));
-    active.push({ channel: s.channel, label: await channelLabel(session, s.channel), total: s.total, rows });
+    for (const m of s.shown)
+      rows.push(await buildRow(session, s.channel.id, m, users, window.tz, cite.present));
+    active.push({
+      channel: s.channel,
+      label: await channelLabel(session, s.channel),
+      total: s.total,
+      rows,
+    });
   }
 
   const header = encodeObject({
@@ -135,13 +178,22 @@ export async function catchupCommand(args: string[]): Promise<string> {
 
   const blocks = [header];
   for (const a of active) {
-    const incomplete = a.rows.length < a.total ? ` (most recent ${a.rows.length} of ${a.total}; raise --limit-per)` : "";
-    blocks.push(`${a.label} (${a.channel.id})${incomplete}:\n${indentLines(renderList("messages", a.rows), 2)}`);
+    const incomplete =
+      a.rows.length < a.total
+        ? ` (most recent ${a.rows.length} of ${a.total}; raise --limit-per)`
+        : "";
+    blocks.push(
+      `${a.label} (${a.channel.id})${incomplete}:\n${indentLines(renderList("messages", a.rows), 2)}`,
+    );
   }
 
   const help = [
-    active.length > 0 ? "Use `slack-axi read <channel> --from --to` or `thread <channel> <ts>` to expand" : "Nothing posted in this window across the scoped channels",
-    !cite.present ? "Add `--cite`, or `slack-axi cite <channel> <ts...>`, for permalinks" : undefined,
+    active.length > 0
+      ? "Use `slack-axi read <channel> --from --to` or `thread <channel> <ts>` to expand"
+      : "Nothing posted in this window across the scoped channels",
+    !cite.present
+      ? "Add `--cite`, or `slack-axi cite <channel> <ts...>`, for permalinks"
+      : undefined,
   ].filter((l): l is string => Boolean(l));
 
   return joinBlocks(...blocks, renderHelp(help));
@@ -152,10 +204,16 @@ async function resolveScope(
   opts: { inList?: string; type?: string; match?: string },
 ): Promise<ChannelMeta[]> {
   if (opts.inList) {
-    const names = opts.inList.split(",").map((s) => s.trim()).filter(Boolean);
+    const names = opts.inList
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
     return Promise.all(names.map((n) => resolveChannel(session, n)));
   }
-  const types = (opts.type ?? "public,private").split(",").map((s) => s.trim()).filter(Boolean);
+  const types = (opts.type ?? "public,private")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
   let pool = (await getChannels(session)).filter((c) => c.is_member && types.includes(c.type));
   if (opts.match) {
     const q = opts.match.toLowerCase();
@@ -173,7 +231,8 @@ async function buildRow(
   cite: boolean,
 ): Promise<Record<string, unknown>> {
   const author = msg.user ? userName(msg.user, users) : msg.botId ? "(bot)" : "(system)";
-  const replyNote = msg.replyCount > 0 ? ` [+${msg.replyCount} repl${msg.replyCount === 1 ? "y" : "ies"}]` : "";
+  const replyNote =
+    msg.replyCount > 0 ? ` [+${msg.replyCount} repl${msg.replyCount === 1 ? "y" : "ies"}]` : "";
   const fileCount = msg.files?.length ?? 0;
   const fileNote = fileCount > 0 ? ` [+${fileCount} file${fileCount === 1 ? "" : "s"}]` : "";
   const row: Record<string, unknown> = {
@@ -191,7 +250,12 @@ function ws(session: Session): string {
 }
 
 /** Rebuild the scope flags for the per-batch command emitted by plan mode. */
-function scopeSuffix(opts: { type?: string; match?: string; in?: string; excludeBots?: boolean }): string {
+function scopeSuffix(opts: {
+  type?: string;
+  match?: string;
+  in?: string;
+  excludeBots?: boolean;
+}): string {
   const parts: string[] = [];
   if (opts.in) parts.push(`--in ${opts.in}`);
   else {
@@ -209,5 +273,8 @@ function posInt(value: string | undefined, fallback: number): number {
 
 function indentLines(text: string, spaces: number): string {
   const pad = " ".repeat(spaces);
-  return text.split("\n").map((line) => (line.length > 0 ? pad + line : line)).join("\n");
+  return text
+    .split("\n")
+    .map((line) => (line.length > 0 ? pad + line : line))
+    .join("\n");
 }
