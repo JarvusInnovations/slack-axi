@@ -50,7 +50,12 @@ const byTsAsc = (a: Msg, b: Msg) => Number.parseFloat(a.ts) - Number.parseFloat(
  * one microsecond before `endMs`) so adjacent windows/batches tile with no gap and no overlap.
  * See specs/behaviors/time-and-completeness.md.
  */
-export async function fetchWindow(session: Session, channelId: string, oldestMs: number, endMs: number): Promise<Msg[]> {
+export async function fetchWindow(
+  session: Session,
+  channelId: string,
+  oldestMs: number,
+  endMs: number,
+): Promise<Msg[]> {
   const messages: Msg[] = [];
   let cursor: string | undefined;
   do {
@@ -69,7 +74,11 @@ export async function fetchWindow(session: Session, channelId: string, oldestMs:
 }
 
 /** A whole thread (parent + replies), paginated to completion, oldest→newest. */
-export async function fetchThread(session: Session, channelId: string, parentTs: string): Promise<Msg[]> {
+export async function fetchThread(
+  session: Session,
+  channelId: string,
+  parentTs: string,
+): Promise<Msg[]> {
   const messages: Msg[] = [];
   let cursor: string | undefined;
   do {
@@ -86,6 +95,10 @@ export async function fetchThread(session: Session, channelId: string, parentTs:
 }
 
 /** Replies to a thread, excluding the parent. */
-export async function fetchReplies(session: Session, channelId: string, parentTs: string): Promise<Msg[]> {
+export async function fetchReplies(
+  session: Session,
+  channelId: string,
+  parentTs: string,
+): Promise<Msg[]> {
   return (await fetchThread(session, channelId, parentTs)).filter((m) => m.ts !== parentTs);
 }
