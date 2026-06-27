@@ -12,7 +12,9 @@ export async function cacheCommand(args: string[]): Promise<string> {
   const sub = args[0];
   const team = takeFlag(args.slice(1), "--team");
   if (sub !== "refresh") {
-    throw new AxiError(`Unknown cache subcommand: ${sub}`, "USAGE", ["Only `cache refresh` is supported"]);
+    throw new AxiError(`Unknown cache subcommand: ${sub}`, "USAGE", [
+      "Only `cache refresh` is supported",
+    ]);
   }
 
   const session = await activeSession({ teamFlag: team.value });

@@ -26,7 +26,10 @@ export function webClient(token: string): WebClient {
 export async function validateToken(token: string): Promise<TokenIdentity> {
   const res = await fetch("https://slack.com/api/auth.test", {
     method: "POST",
-    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/x-www-form-urlencoded" },
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
   });
 
   const scopes = (res.headers.get("x-oauth-scopes") ?? "")

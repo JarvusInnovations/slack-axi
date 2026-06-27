@@ -22,11 +22,13 @@ export async function homeCommand(): Promise<string> {
 
   const workspaceLabel = active.teamName
     ? `${active.teamName} (${active.teamId ?? "?"})`
-    : active.teamId ?? "(from SLACK_AXI_TOKEN)";
+    : (active.teamId ?? "(from SLACK_AXI_TOKEN)");
 
   const stored = listWorkspaceIds();
   // Cache-only (no network): home loads on every session, so never refresh here.
-  const channelCount = active.teamId ? cachedChannels(active.teamId).filter((c) => c.is_member).length : 0;
+  const channelCount = active.teamId
+    ? cachedChannels(active.teamId).filter((c) => c.is_member).length
+    : 0;
 
   const statusFields: Record<string, unknown> = { workspace: workspaceLabel };
   if (channelCount > 0) statusFields.your_channels = channelCount;
@@ -35,7 +37,9 @@ export async function homeCommand(): Promise<string> {
   const help: string[] = ["Run `slack-axi channels` to list your channels (all types)"];
   if (stored.length > 1) help.push("Run `slack-axi auth workspaces` to see all workspaces");
   help.push("Run `slack-axi doctor` to verify auth + scopes");
-  help.push("Run `slack-axi --help` to see the full command list, or `slack-axi <command> --help` for usage on any command");
+  help.push(
+    "Run `slack-axi --help` to see the full command list, or `slack-axi <command> --help` for usage on any command",
+  );
 
   return joinBlocks(status, renderHelp(help));
 }

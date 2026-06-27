@@ -211,14 +211,10 @@ export function resolveActiveToken(options: {
 
   const ids = listWorkspaceIds();
   if (ids.length === 0) {
-    throw new AxiError(
-      "No Slack token available",
-      "NO_TOKEN",
-      [
-        "Set SLACK_AXI_TOKEN, or run `slack-axi auth setup` to create an app and store a token",
-        "Then `slack-axi auth login --token xoxp-...`",
-      ],
-    );
+    throw new AxiError("No Slack token available", "NO_TOKEN", [
+      "Set SLACK_AXI_TOKEN, or run `slack-axi auth setup` to create an app and store a token",
+      "Then `slack-axi auth login --token xoxp-...`",
+    ]);
   }
 
   if (teamFlag) return fromStored(teamFlag, "flag");
@@ -227,9 +223,7 @@ export function resolveActiveToken(options: {
     throw new AxiError(
       "Multiple workspaces are stored; a mutation requires an explicit workspace",
       "TEAM_REQUIRED",
-      [
-        `Pass --team <id> (one of: ${ids.join(", ")}) or set SLACK_AXI_TEAM`,
-      ],
+      [`Pass --team <id> (one of: ${ids.join(", ")}) or set SLACK_AXI_TEAM`],
     );
   }
 
@@ -237,21 +231,17 @@ export function resolveActiveToken(options: {
   if (def && getStoredToken(def)) return fromStored(def, "default");
   if (ids.length === 1) return fromStored(ids[0], "single");
 
-  throw new AxiError(
-    "No default workspace set and multiple are stored",
-    "NO_DEFAULT_TEAM",
-    [`Run \`slack-axi auth use <team>\` (one of: ${ids.join(", ")})`],
-  );
+  throw new AxiError("No default workspace set and multiple are stored", "NO_DEFAULT_TEAM", [
+    `Run \`slack-axi auth use <team>\` (one of: ${ids.join(", ")})`,
+  ]);
 }
 
 function fromStored(teamId: string, source: ActiveToken["source"]): ActiveToken {
   const stored = getStoredToken(teamId);
   if (!stored) {
-    throw new AxiError(
-      `Workspace ${teamId} is not authenticated`,
-      "TEAM_NOT_FOUND",
-      [`Authenticated workspaces: ${listWorkspaceIds().join(", ") || "(none)"}`],
-    );
+    throw new AxiError(`Workspace ${teamId} is not authenticated`, "TEAM_NOT_FOUND", [
+      `Authenticated workspaces: ${listWorkspaceIds().join(", ") || "(none)"}`,
+    ]);
   }
   return {
     token: stored.token,

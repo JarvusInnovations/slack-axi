@@ -29,7 +29,8 @@ export function renderList(
   options: { total?: number } = {},
 ): string {
   const total = options.total ?? rows.length;
-  const header = total === rows.length ? `${label}[${rows.length}]` : `${label}[${rows.length} of ${total}]`;
+  const header =
+    total === rows.length ? `${label}[${rows.length}]` : `${label}[${rows.length} of ${total}]`;
   // Encode under a placeholder label, then swap in our count-annotated header.
   const encoded = encode({ [label]: rows });
   return encoded.replace(new RegExp(`^${label}\\[${rows.length}\\]`), header);
