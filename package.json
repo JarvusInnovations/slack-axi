@@ -21,6 +21,10 @@
   "scripts": {
     "build": "tsc && chmod +x dist/bin/slack-axi.js",
     "dev": "bun bin/slack-axi.ts",
+    "lint": "oxlint src bin test",
+    "format": "oxfmt src bin test",
+    "format:check": "oxfmt --check src bin test",
+    "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
     "test:watch": "vitest",
     "prepublishOnly": "bun run build"
