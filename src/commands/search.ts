@@ -19,10 +19,11 @@ import {
 import { handle } from "../slack/ts.js";
 import { DEFAULT_TZ, formatDate, formatDateTime, parseSpanMs, tsToEpochMs } from "../slack/time.js";
 
-export const SEARCH_HELP = `usage: slack-axi search "<query>" [flags]
+export const SEARCH_HELP = `usage: slack-axi search ["<query>"] [flags]
 Finds messages (or files) across every conversation you belong to. Exhaustive by default: sweeps ALL
-matches, oldest→newest, and declares completeness. To read a channel over a window completely, use
-\`read <channel> --from --to\` instead.
+matches, oldest→newest, and declares completeness. The query is optional when a filter narrows the
+search (e.g. \`--in\`/\`--from\`/\`--after\`) — search by filter alone. To read a channel over a window
+completely, use \`read <channel> --from --to\` instead.
 flags[13]:
   --files          Search files/attachments instead of messages
   --in <channel>   Limit to a channel (#name or id)
@@ -41,7 +42,8 @@ examples:
   slack-axi search "proposal loss"
   slack-axi search "token refresh" --in #eng --after 2026-05-01
   slack-axi search "contract" --files --from alice
-  slack-axi search "budget" --with alice --type im`;
+  slack-axi search "budget" --with alice --type im
+  slack-axi search --in #eng --from alice --after 2026-05-01   # filters only, no query`;
 
 /** Hard ceiling on a single sweep, stated in output if hit (never a silent truncation). */
 const SWEEP_CEILING = 1000;
@@ -73,9 +75,27 @@ export async function searchCommand(args: string[]): Promise<string> {
   const cite = citeFlag.present;
   const positional = citeFlag.rest.filter((a) => !a.startsWith("-"));
   const query = positional.join(" ").trim();
-  if (!query) {
-    throw new AxiError('usage: slack-axi search "<query>" [flags]', "USAGE", [
+
+  // The free-text query is optional when a filter narrows the search. A "narrowing filter" is any flag
+  // that becomes a Slack search modifier; `--type` is excluded because it's a post-filter with no
+  // modifier, so it can't stand in for a query (there'd be nothing to send to Slack). With neither a
+  // query nor a narrowing filter, we error rather than send Slack an empty query.
+  const hasNarrowingFilter = Boolean(
+    inFlag.value ||
+    fromFlag.value ||
+    withFlag.value ||
+    toFlag.value ||
+    hasFlags.values.length ||
+    isFlags.values.length ||
+    after.value ||
+    before.value ||
+    on.value ||
+    during.value,
+  );
+  if (!query && !hasNarrowingFilter) {
+    throw new AxiError('usage: slack-axi search ["<query>"] [flags]', "USAGE", [
       'Pass a search query, e.g. slack-axi search "proposal loss"',
+      "…or search by filter alone, e.g. slack-axi search --in #eng --from alice --after 2026-05-01",
     ]);
   }
 
@@ -103,9 +123,10 @@ export async function searchCommand(args: string[]): Promise<string> {
   // (C covers both public and private). Prime the member-channel cache so getCachedChannel resolves.
   if (type && !files) await getChannels(session);
 
-  // Translate friendly flags into Slack search modifiers.
+  // Translate friendly flags into Slack search modifiers. A filters-only search omits the free-text
+  // leg, so the sent query is the modifier expression alone (e.g. `in:#eng from:@alice`).
   const notes: string[] = [];
-  const parts = [query];
+  const parts: string[] = query ? [query] : [];
   if (inFlag.value) parts.push(`in:#${await channelNameFor(session, inFlag.value)}`);
   if (fromFlag.value) parts.push(`from:${userModifier(session, fromFlag.value, notes, "--from")}`);
   if (withFlag.value) parts.push(`with:${userModifier(session, withFlag.value, notes, "--with")}`);

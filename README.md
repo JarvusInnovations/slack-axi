@@ -46,7 +46,7 @@ slack-axi read <channel> [--since 7d | --from <d> --to <d>] [--threads ...]  # t
 slack-axi thread <channel> <ts> # one thread, fully
 slack-axi reactions <channel> <ts>  # full reactor roster (read/thread show inline counts)
 slack-axi download <file-id…> [--out <dir>]  # fetch message attachments to disk (read/thread list ids)
-slack-axi search "<query>" [--in #c] [--from @u] [--with @u] [--after <d>]   # find a thing
+slack-axi search ["<query>"] [--in #c] [--from @u] [--with @u] [--after <d>]  # find a thing (query optional if a filter narrows)
 slack-axi catchup [--since 1d] [--match q] [--in ...]   # scoped multi-channel sweep
 slack-axi catchup --every 1w …  # plan a month+ catch-up as weekly batches
 slack-axi cite <channel> <ts…>  # permalinks + the { channel, ts, permalink } citation shape
