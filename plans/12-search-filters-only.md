@@ -1,9 +1,10 @@
 ---
-status: in-progress
+status: done
 depends: [04-search, 08-search-coverage]
 specs:
   - specs/commands/search.md
 issues: []
+pr: https://github.com/folderparr/slack-axi/pull/1
 ---
 
 # 12 — search: query optional when a filter narrows
@@ -65,4 +66,13 @@ nothing to send); files-vs-messages behavior (unchanged).
 
 ## Notes
 
+- The change is a small guard inversion: instead of "require a query", require "a query **or** a
+  narrowing filter". Everything downstream (sweep, `query:` header echo, empty-state) already handled a
+  modifier-only query string, so no sweep/output changes were needed.
+- `--type` is deliberately not a narrowing filter — it's a post-filter with no Slack modifier, so
+  treating it as one would produce an empty Slack query. Verified via a unit test that `--type im` alone
+  still errors `USAGE`.
+
 ## Follow-ups
+
+None.
