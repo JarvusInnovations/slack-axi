@@ -11,6 +11,8 @@ export interface StoredToken {
   user_name?: string;
   /** Bot identity (`B…`) for a bot token; messages it posts carry this as `bot_id`. */
   bot_id?: string;
+  /** Explicit outgoing-rendering mode override; absent → derived from bot_id. See workspaceMode(). */
+  mode?: Mode;
   token: string;
   scopes: string[];
   obtained_at: string;
@@ -18,6 +20,27 @@ export interface StoredToken {
 
 export interface UserConfig {
   default_team?: string;
+}
+
+/** Outgoing-rendering mode: a person's token renders mrkdwn text; a bot's renders Block Kit. */
+export type Mode = "human" | "bot";
+
+export function isMode(value: unknown): value is Mode {
+  return value === "human" || value === "bot";
+}
+
+/** A workspace's effective mode: the explicit override, else derived from whether it's a bot token. */
+export function workspaceMode(stored: Pick<StoredToken, "mode" | "bot_id">): Mode {
+  return stored.mode ?? (stored.bot_id ? "bot" : "human");
+}
+
+/** Set (or clear, with undefined) a workspace's explicit mode override. */
+export function setWorkspaceMode(teamId: string, mode: Mode | undefined): void {
+  const stored = getStoredToken(teamId);
+  if (!stored) throw new AxiError(`Workspace ${teamId} is not authenticated`, "TEAM_NOT_FOUND", []);
+  if (mode) stored.mode = mode;
+  else delete stored.mode;
+  writeJson(tokenPath(stored.team_id), stored, 0o600);
 }
 
 /** Result of resolving which token/workspace a command should act against. */
@@ -28,6 +51,8 @@ export interface ActiveToken {
   userId: string | undefined;
   userName: string | undefined;
   botId: string | undefined;
+  /** Effective mode when a stored record is known; undefined for a bare env token. */
+  mode: Mode | undefined;
   scopes: string[] | undefined;
   source: "env" | "flag" | "default" | "single";
 }
@@ -83,11 +108,21 @@ export interface Draft {
   kind?: "post" | "edit" | "delete";
   /** For edit/delete: the ts of the token's own message being changed/removed. */
   target_ts?: string;
+  /** For delete of a multi-chunk post: every chunk ts (target_ts is the first). */
+  target_chunks?: string[];
   /** For edit/delete: the target's text at preparation time (so the review shows old → new). */
   previous_text?: string;
+  /** The Markdown source as given (absent for records written before rendering existed). */
+  markdown?: string;
+  /** What is sent as `text`: rendered mrkdwn (human), the fallback (bot), or the verbatim text (raw). */
   text: string;
+  /** Bot mode: chunked Block Kit, one chunk per message. */
+  blocks?: unknown[][];
+  /** True when rendering was skipped (`--raw`). */
+  raw?: boolean;
   created_at: string;
-  sent?: { ts: string; permalink: string; at: string };
+  /** `ts` is the first (or only) message; `chunks` lists every ts when a bot-mode post spanned several. */
+  sent?: { ts: string; permalink: string; at: string; chunks?: string[] };
 }
 
 function draftsDir(): string {
@@ -214,6 +249,7 @@ export function resolveActiveToken(options: {
       userId: stored?.user_id,
       userName: stored?.user_name,
       botId: stored?.bot_id,
+      mode: stored ? workspaceMode(stored) : undefined,
       scopes: stored?.scopes,
       source: "env",
     };
@@ -260,6 +296,7 @@ function fromStored(teamId: string, source: ActiveToken["source"]): ActiveToken 
     userId: stored.user_id,
     userName: stored.user_name,
     botId: stored.bot_id,
+    mode: workspaceMode(stored),
     scopes: stored.scopes,
     source,
   };

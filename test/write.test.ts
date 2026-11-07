@@ -4,11 +4,13 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   deleteCommand,
+  describeOutgoing,
   draftKind,
   draftStatus,
   editCommand,
   firstLine,
   isOwnMessage,
+  renderOutgoing,
 } from "../src/commands/write.js";
 import { writeDraft } from "../src/config.js";
 import type { Session } from "../src/session.js";
@@ -150,5 +152,32 @@ describe("fetchMessage", () => {
     });
     const s = fakeSession([], err);
     expect(await fetchMessage(s, "C1", "1.000001")).toBeUndefined();
+  });
+});
+
+describe("renderOutgoing / describeOutgoing", () => {
+  it("human mode renders mrkdwn text", async () => {
+    const out = await renderOutgoing("human", "**bold** [doc](https://d.oc)", false);
+    expect(out.blocks).toBeUndefined();
+    expect(out.text.replace(/​/g, "")).toBe("*bold* <https://d.oc|doc>");
+    expect(describeOutgoing("human", out, false)).toEqual({ mode: "human", text: out.text });
+  });
+  it("bot mode renders chunked blocks with the markdown as text fallback", async () => {
+    const md = "# Title\n\n- a\n- b";
+    const out = await renderOutgoing("bot", md, false);
+    expect(out.text).toBe(md);
+    expect(out.blocks?.length).toBe(1);
+    const shown = describeOutgoing("bot", out, false);
+    expect(shown.mode).toBe("bot");
+    expect(String(shown.blocks)).toMatch(/^\d+ in 1 chunk\(s\)$/);
+  });
+  it("--raw passes text through in either mode", async () => {
+    const out = await renderOutgoing("bot", "*already mrkdwn*", true);
+    expect(out).toEqual({ text: "*already mrkdwn*" });
+    expect(describeOutgoing("bot", out, true)).toEqual({
+      mode: "bot",
+      raw: true,
+      text: "*already mrkdwn*",
+    });
   });
 });

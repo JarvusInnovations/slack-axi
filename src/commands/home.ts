@@ -31,6 +31,7 @@ export async function homeCommand(): Promise<string> {
     : 0;
 
   const statusFields: Record<string, unknown> = { workspace: workspaceLabel };
+  if (active.mode) statusFields.mode = active.mode;
   if (channelCount > 0) statusFields.your_channels = channelCount;
   const status = encodeBlock("status", statusFields);
 

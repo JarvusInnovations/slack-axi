@@ -1,5 +1,5 @@
 import type { WebClient } from "@slack/web-api";
-import { resolveActiveToken } from "./config.js";
+import { isMode, type Mode, resolveActiveToken } from "./config.js";
 import { validateToken, webClient } from "./slack/client.js";
 import { toAxiError } from "./slack/errors.js";
 
@@ -13,7 +13,22 @@ export interface Session {
   userName?: string;
   /** Bot identity (`B…`) when the token is a bot token; its messages carry this as `bot_id`. */
   botId?: string;
+  /** Outgoing-rendering mode, when known from the stored record. See resolveMode(). */
+  mode?: Mode;
   client: WebClient;
+}
+
+/**
+ * The mode outgoing text is rendered in: `SLACK_AXI_MODE` for this run, else the workspace record's
+ * (override or derived), else derived from the token's identity. See specs/behaviors/mrkdwn.md.
+ */
+export async function resolveMode(session: Session): Promise<Mode> {
+  const env = process.env.SLACK_AXI_MODE;
+  if (isMode(env)) return env;
+  if (session.mode) return session.mode;
+  const identity = await ensureIdentity(session);
+  session.mode = identity.botId ? "bot" : "human";
+  return session.mode;
 }
 
 /** The identity a token's writes act as. See specs/commands/write.md → The token's identity. */
@@ -73,6 +88,7 @@ export async function activeSession(
     userId,
     userName,
     botId,
+    mode: active.mode,
     client: webClient(active.token),
   };
 }
