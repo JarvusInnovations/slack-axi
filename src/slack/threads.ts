@@ -1,5 +1,6 @@
 import type { Session } from "../session.js";
 import { type FileMeta, toFileMeta } from "./files.js";
+import { type LinkMeta, linksFromAttachments } from "./links.js";
 import { type ReactionCount, toReactionCount } from "./reactions.js";
 import { epochMsToTs, tsExclusiveBefore } from "./time.js";
 
@@ -17,6 +18,8 @@ export interface Msg {
   reactions?: ReactionCount[];
   /** Attachment metadata (no bytes); the `id` is the handle for `download`. See files.ts. */
   files?: FileMeta[];
+  /** Link-unfurl attachments (title + whole URL), from `attachments[]`. See links.ts. */
+  links?: LinkMeta[];
 }
 
 export function isBot(msg: Msg): boolean {
@@ -39,8 +42,15 @@ function toMsg(raw: Record<string, unknown>): Msg {
     ...(Array.isArray(raw.files) && raw.files.length > 0
       ? { files: (raw.files as Record<string, unknown>[]).map(toFileMeta) }
       : {}),
+    ...(() => {
+      const links = linksFromAttachments(raw.attachments);
+      return links.length > 0 ? { links } : {};
+    })(),
   };
 }
+
+/** Normalize a raw history/replies message (exported for tests). */
+export const toMessage = toMsg;
 
 const byTsAsc = (a: Msg, b: Msg) => Number.parseFloat(a.ts) - Number.parseFloat(b.ts);
 

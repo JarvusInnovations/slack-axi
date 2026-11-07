@@ -40,6 +40,11 @@ arguments accept `#name`, bare `name`, or an id (`C…`/`G…`/`D…`) interchan
   reactions — free, already in the data. For **who** reacted, use the `reactions` command below.
 - `read`/`thread` also show a `files` column when a message has attachments — `name (type, size) [F-id]`,
   free from the same payload. Use the `F-id` with `download` to fetch the bytes.
+- `read`/`thread` show a `links` column when a message carries a link unfurl — `title <url>`, URL always
+  whole. URLs in message text are never cut by truncation, and `<url|label>` links render as
+  `label (url)` so the href is always recoverable.
+- When any text was truncated, `help[]` says so and names `--full`; if you see the hint and need the
+  full text, re-run with `--full` (also on `catchup`).
 
 ## Files / attachments
 

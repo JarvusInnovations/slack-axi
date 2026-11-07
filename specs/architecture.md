@@ -56,6 +56,7 @@ slack-axi/
       threads.ts              # history+replies merge + inline rendering (carries reaction counts)
       reactions.ts            # reactions.get full=true → complete reactor roster; inline counts summary
       files.ts                # file metadata off messages + files.info/url_private_download byte fetch
+      links.ts                # link-unfurl attachments off messages (title + whole URL)
       errors.ts               # translateSlackError(code) → AxiError
     output/
       schema.ts               # FieldDef builders (field, truncated, mapEnum, computed)

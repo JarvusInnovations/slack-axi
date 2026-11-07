@@ -34,6 +34,7 @@ specs/
     resolution-and-caching.md  # #name|id channels, user-id→name, local caches
     threads.md             # inlining replies under parents
     files.md               # attachments surfaced inline; download bytes to disk
+    links.md               # URLs never cut; link-unfurl attachments surfaced inline
     permalinks.md          # ready-to-use permalink on every message
     errors.md              # Slack error → AxiError translation, exit codes
     auth-and-workspaces.md # token resolution order, multi-workspace, write-protection

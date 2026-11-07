@@ -10,7 +10,7 @@ channels; the scope and a call-count guard keep that fan-out bounded.
 ```
 slack-axi catchup [--since 1d | --from <when> --to <when>] [--tz <zone>] [--every <span>]
                   [--type public,private,mpim,im] [--match <q>] [--in <c1,c2,...>]
-                  [--limit-per <n>] [--max-channels <n>] [--exclude-bots] [--cite]
+                  [--limit-per <n>] [--max-channels <n>] [--exclude-bots] [--cite] [--full]
 ```
 
 ## Plan mode (`--every <span>`)
@@ -57,7 +57,12 @@ boundary's wall-clock by an hour — coverage stays exact; only a displayed date
   with a thread, and `help[]` points to `read <channel>` / `thread <channel> <ts>` to expand one.
 - **Attachments are flagged, not listed** (the sweep stays lean): a message with files gets a
   `[+N file(s)]` note; the agent runs `read`/`thread` on that channel to get the file ids, then
-  `download`. See [files.md](../behaviors/files.md).
+  `download`. See [files.md](../behaviors/files.md). Link-unfurl attachments get a `[+N link(s)]` note
+  the same way (see [links.md](../behaviors/links.md)); URLs in the message text itself are rendered
+  whole regardless.
+- Message text is truncated as in `read`; `--full` disables it, and when any row was truncated the
+  `help[]` footer carries the `--full` hint (see
+  [output-format.md → Truncation](../behaviors/output-format.md#truncation)).
 - `--limit-per <n>` (default 50) caps messages **per channel**; when exceeded, that channel's block is
   marked incomplete with its total — never a silent per-channel cap.
 
