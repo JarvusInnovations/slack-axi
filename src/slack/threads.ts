@@ -104,6 +104,40 @@ export async function fetchThread(
   return messages.sort(byTsAsc);
 }
 
+/**
+ * One message by channel + ts, or `undefined` when no such message exists there. `history` is
+ * queried first (`oldest = latest = ts`, inclusive); a thread reply is not returned by `history`, so a
+ * miss falls through to `replies`, which returns the reply itself for a reply ts. Used to check
+ * ownership before an edit/delete is prepared. See specs/commands/write.md.
+ */
+export async function fetchMessage(
+  session: Session,
+  channelId: string,
+  ts: string,
+): Promise<Msg | undefined> {
+  const norm = (list: unknown) =>
+    (Array.isArray(list) ? list : [])
+      .map((m) => toMsg(m as Record<string, unknown>))
+      .find((m) => m.ts === ts);
+  const hist = await session.client.conversations.history({
+    channel: channelId,
+    oldest: ts,
+    latest: ts,
+    inclusive: true,
+    limit: 1,
+  });
+  const fromHistory = norm(hist.messages);
+  if (fromHistory) return fromHistory;
+  try {
+    const rep = await session.client.conversations.replies({ channel: channelId, ts, limit: 1 });
+    return norm(rep.messages);
+  } catch (err) {
+    const code = (err as { data?: { error?: string } })?.data?.error;
+    if (code === "thread_not_found" || code === "message_not_found") return undefined;
+    throw err;
+  }
+}
+
 /** Replies to a thread, excluding the parent. */
 export async function fetchReplies(
   session: Session,

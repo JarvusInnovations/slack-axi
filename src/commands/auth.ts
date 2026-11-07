@@ -172,6 +172,7 @@ async function login(args: string[]): Promise<string> {
     team_id: identity.teamId,
     team_name: identity.teamName,
     user_id: identity.userId,
+    ...(identity.botId ? { bot_id: identity.botId } : {}),
     user_name: identity.userName,
     token,
     scopes: identity.scopes,

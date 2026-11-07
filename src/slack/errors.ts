@@ -47,6 +47,19 @@ export function slackErrorToAxi(
       return new AxiError("Message or thread not found", "MESSAGE_NOT_FOUND", [
         "Check the ts; run `slack-axi read <channel>` to find the message",
       ]);
+    case "cant_update_message":
+    case "cant_delete_message":
+      return new AxiError(
+        "Only the message's author can edit or delete it, and this token is not the author",
+        "NOT_MESSAGE_AUTHOR",
+        ["There is no override; ask the author, or post a follow-up with `slack-axi draft`"],
+      );
+    case "edit_window_closed":
+      return new AxiError(
+        "This workspace no longer allows editing a message this old",
+        "EDIT_WINDOW_CLOSED",
+        ['Post a correction as a reply instead: `slack-axi draft <channel> --reply <ts> "..."`'],
+      );
     case "file_not_found":
     case "file_deleted":
       return new AxiError("File not found", "FILE_NOT_FOUND", [

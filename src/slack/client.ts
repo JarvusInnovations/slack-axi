@@ -6,6 +6,8 @@ export interface TokenIdentity {
   teamName: string;
   userId: string;
   userName?: string;
+  /** Present for a bot token (`xoxb-`): the identity its messages carry as `bot_id`. */
+  botId?: string;
   url?: string;
   scopes: string[];
 }
@@ -44,6 +46,7 @@ export async function validateToken(token: string): Promise<TokenIdentity> {
     team_id?: string;
     user?: string;
     user_id?: string;
+    bot_id?: string;
     url?: string;
   };
 
@@ -59,6 +62,7 @@ export async function validateToken(token: string): Promise<TokenIdentity> {
     teamName: body.team ?? "",
     userId: body.user_id ?? "",
     userName: body.user,
+    ...(body.bot_id ? { botId: body.bot_id } : {}),
     url: body.url,
     scopes,
   };
