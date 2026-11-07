@@ -58,14 +58,19 @@ export async function channelsCommand(args: string[]): Promise<string> {
   const limitFlag = takeFlag(match.rest, "--limit");
   const fields = takeFlag(limitFlag.rest, "--fields");
   const limit = parseLimit(limitFlag.value, DEFAULT_CHANNEL_LIMIT);
-  const extra = (fields.value ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+  const extra = (fields.value ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
 
   const session = await activeSession({ teamFlag: team.value });
 
   let pool: ChannelMeta[];
   if (all.present) {
     await refreshAllChannels(session);
-    pool = cachedChannels(session.teamId).filter((c) => c.type === "public" || c.type === "private");
+    pool = cachedChannels(session.teamId).filter(
+      (c) => c.type === "public" || c.type === "private",
+    );
   } else {
     pool = (await getChannels(session)).filter((c) => c.is_member);
   }
@@ -74,17 +79,30 @@ export async function channelsCommand(args: string[]): Promise<string> {
   let filtered = pool;
   if (type.value) {
     if (!["public", "private", "mpim", "im"].includes(type.value)) {
-      throw new AxiError(`Unknown --type '${type.value}'`, "USAGE", ["Use one of: public, private, mpim, im"]);
+      throw new AxiError(`Unknown --type '${type.value}'`, "USAGE", [
+        "Use one of: public, private, mpim, im",
+      ]);
     }
     filtered = filtered.filter((c) => c.type === type.value);
   }
   if (match.value) filtered = fuzzyChannelMatches(filtered, match.value, filtered.length);
 
   if (filtered.length === 0) {
-    const why = match.value ? ` matching "${match.value}"` : type.value ? ` of type ${type.value}` : "";
+    const why = match.value
+      ? ` matching "${match.value}"`
+      : type.value
+        ? ` of type ${type.value}`
+        : "";
     return joinBlocks(
-      encodeBlock("channels", `0 channels${why} (of ${total} ${all.present ? "workspace" : "your"} channels)`),
-      renderHelp(all.present ? [] : ["Run `slack-axi channels --all` to include channels you haven't joined"]),
+      encodeBlock(
+        "channels",
+        `0 channels${why} (of ${total} ${all.present ? "workspace" : "your"} channels)`,
+      ),
+      renderHelp(
+        all.present
+          ? []
+          : ["Run `slack-axi channels --all` to include channels you haven't joined"],
+      ),
     );
   }
 
@@ -93,7 +111,9 @@ export async function channelsCommand(args: string[]): Promise<string> {
   const labeled = await Promise.all(
     filtered.map(async (c) => ({ meta: c, label: await channelLabel(session, c) })),
   );
-  labeled.sort((a, b) => TYPE_ORDER[a.meta.type] - TYPE_ORDER[b.meta.type] || a.label.localeCompare(b.label));
+  labeled.sort(
+    (a, b) => TYPE_ORDER[a.meta.type] - TYPE_ORDER[b.meta.type] || a.label.localeCompare(b.label),
+  );
 
   const matched = filtered.length;
   const capped = labeled.slice(0, limit);
@@ -108,8 +128,12 @@ export async function channelsCommand(args: string[]): Promise<string> {
   const help = [
     "Run `slack-axi read <channel>` to read one (threads inlined)",
     match.value ? undefined : "Narrow with `--match <q>` or `--type public|private|mpim|im`",
-    capped.length < matched ? `Showing ${capped.length} of ${matched}; raise with \`--limit <n>\`` : undefined,
-    all.present ? "Drop `--all` to list just your channels" : "Add `--all` to include channels you haven't joined",
+    capped.length < matched
+      ? `Showing ${capped.length} of ${matched}; raise with \`--limit <n>\``
+      : undefined,
+    all.present
+      ? "Drop `--all` to list just your channels"
+      : "Add `--all` to include channels you haven't joined",
   ].filter((l): l is string => Boolean(l));
 
   return joinBlocks(
@@ -126,7 +150,9 @@ export async function dmsCommand(args: string[]): Promise<string> {
   const limit = parseLimit(limitFlag.value, DEFAULT_DM_LIMIT);
   const session = await activeSession({ teamFlag: team.value });
 
-  const dms = (await getChannels(session)).filter((c) => c.is_member && (c.type === "im" || c.type === "mpim"));
+  const dms = (await getChannels(session)).filter(
+    (c) => c.is_member && (c.type === "im" || c.type === "mpim"),
+  );
   if (dms.length === 0) return encodeBlock("dms", "0 direct or group-DM conversations");
 
   // Sort cheaply (im first, then by id) and cap BEFORE resolving labels.
@@ -140,7 +166,9 @@ export async function dmsCommand(args: string[]): Promise<string> {
 
   const help = [
     "Run `slack-axi read <id>` to read a DM thread",
-    capped.length < dms.length ? `Showing ${capped.length} of ${dms.length}; raise with \`--limit <n>\`` : undefined,
+    capped.length < dms.length
+      ? `Showing ${capped.length} of ${dms.length}; raise with \`--limit <n>\``
+      : undefined,
   ].filter((l): l is string => Boolean(l));
 
   return joinBlocks(
@@ -161,7 +189,8 @@ export async function membersCommand(args: string[]): Promise<string> {
   const session = await activeSession({ teamFlag: team.value });
   const channel = await resolveChannel(session, target);
   const ids = await listMembers(session, channel.id);
-  if (ids.length === 0) return encodeBlock("members", `0 members in ${await channelLabel(session, channel)}`);
+  if (ids.length === 0)
+    return encodeBlock("members", `0 members in ${await channelLabel(session, channel)}`);
 
   // Hydrate every member id in one batched pass (external/shared-channel members resolve via the
   // users.info fallback), then label synchronously — calling the async per-id userLabel here would
@@ -188,7 +217,11 @@ async function listMembers(session: Session, channel: string): Promise<string[]>
   const ids: string[] = [];
   let cursor: string | undefined;
   do {
-    const res = await session.client.conversations.members({ channel, limit: 200, ...(cursor ? { cursor } : {}) });
+    const res = await session.client.conversations.members({
+      channel,
+      limit: 200,
+      ...(cursor ? { cursor } : {}),
+    });
     ids.push(...(res.members ?? []));
     cursor = res.response_metadata?.next_cursor || undefined;
   } while (cursor);

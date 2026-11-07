@@ -19,6 +19,12 @@ minimal schemas, definitive empty states, structured errors, contextual `help[]`
   - `@toon-format/toon` — output encoding.
   - `@slack/web-api` — official Slack SDK: typed methods, built-in tiered rate-limit retry, cursor
     pagination helpers. The only Slack transport; no hand-rolled HTTP.
+  - `slackify-markdown` — Markdown → mrkdwn text for human-mode writes (remark-based; needs Node ≥ 22,
+    which sets the package's `engines`).
+  - `@tryfabric/mack` (Jarvus fork, `github:JarvusInnovations/mack`) — Markdown → Block Kit for
+    bot-mode writes; the fork adds native tables, rich_text lists, entity-decoding fixes, and commits
+    its build so the `github:` dependency installs without a compile step. Shared with claude-assist.
+    See [behaviors/mrkdwn.md](behaviors/mrkdwn.md).
 
 ## No daemon
 
@@ -56,6 +62,9 @@ slack-axi/
       threads.ts              # history+replies merge + inline rendering (carries reaction counts)
       reactions.ts            # reactions.get full=true → complete reactor roster; inline counts summary
       files.ts                # file metadata off messages + files.info/url_private_download byte fetch
+      links.ts                # link-unfurl attachments off messages (title + whole URL)
+      mrkdwn.ts               # Markdown → mrkdwn text (human mode); Slack-token protection
+      blocks.ts               # Markdown → Block Kit + chunking (bot mode)
       errors.ts               # translateSlackError(code) → AxiError
     output/
       schema.ts               # FieldDef builders (field, truncated, mapEnum, computed)
@@ -83,7 +92,7 @@ correctly; `runAxiCli` is used with `TContext = undefined`.
   manifest.yaml                    # generated app manifest (scopes pre-filled, rotation disabled)
   setup.html                       # generated: new-app link + copy-paste manifest box
   workspaces/<TEAM_ID>/
-    token.json                     # { team, team_name, user_id, token, scopes[], obtained_at }  mode 0600
+    token.json                     # { team, team_name, user_id, bot_id?, mode?, token, scopes[], obtained_at }  mode 0600
   cache/<TEAM_ID>/
     channels.json                  # id → {name,type,is_member,topic,...}  + fetched_at (TTL)
     users.json                     # id → {name,real_name,display_name}    + fetched_at (TTL)

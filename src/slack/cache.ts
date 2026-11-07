@@ -168,7 +168,9 @@ export function getCachedChannel(teamId: string, id: string): ChannelMeta | unde
 /** Fetch a single channel by id via conversations.info and cache it. */
 export async function fetchChannelInfo(session: Session, id: string): Promise<ChannelMeta> {
   const res = await session.client.conversations.info({ channel: id });
-  const [meta] = mergeChannels(session.teamId, [toChannelMeta(res.channel as Record<string, unknown>)]);
+  const [meta] = mergeChannels(session.teamId, [
+    toChannelMeta(res.channel as Record<string, unknown>),
+  ]);
   return meta;
 }
 
@@ -176,7 +178,9 @@ export async function fetchChannelInfo(session: Session, id: string): Promise<Ch
 
 export function toUserMeta(u: Record<string, unknown>, teamId: string): UserMeta {
   const profile =
-    (u.profile as { real_name?: string; display_name?: string; email?: string; title?: string } | undefined) ?? {};
+    (u.profile as
+      | { real_name?: string; display_name?: string; email?: string; title?: string }
+      | undefined) ?? {};
   // Slack Connect members carry a `team_id` that differs from the active workspace; `users.list`
   // omits them entirely, which is why they only surface via the on-demand `users.info` fallback.
   // `is_stranger` is NOT reliably set for them (it's false for verified Connect members), so the
@@ -262,11 +266,14 @@ export async function ensureUsersByIds(session: Session, ids: Iterable<string>):
   const misses = cache.misses ?? {};
   const at = now();
   const need = [...new Set(ids)].filter(
-    (id) => id && !cache.users[id] && !(misses[id] !== undefined && at - misses[id] < USER_MISS_TTL_MS),
+    (id) =>
+      id && !cache.users[id] && !(misses[id] !== undefined && at - misses[id] < USER_MISS_TTL_MS),
   );
   if (need.length === 0) return;
 
-  const fetched = await Promise.all(need.map(async (id) => [id, await fetchUserInfo(session, id)] as const));
+  const fetched = await Promise.all(
+    need.map(async (id) => [id, await fetchUserInfo(session, id)] as const),
+  );
   for (const [id, meta] of fetched) {
     if (meta) delete misses[id];
     else misses[id] = at;

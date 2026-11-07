@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { takeFlags } from "../src/flags.js";
-import { paginate, toSearchDate } from "../src/commands/search.js";
+import { paginate, searchCommand, SEARCH_HELP, toSearchDate } from "../src/commands/search.js";
 import { resolveUserId } from "../src/slack/resolve.js";
 import type { Session } from "../src/session.js";
 
@@ -49,7 +49,10 @@ describe("paginate (page-based sweep)", () => {
     const fetchPage = async (page: number) => {
       calls.push(page);
       const start = (page - 1) * pageSize;
-      const items = Array.from({ length: Math.max(0, Math.min(pageSize, total - start)) }, (_, i) => start + i);
+      const items = Array.from(
+        { length: Math.max(0, Math.min(pageSize, total - start)) },
+        (_, i) => start + i,
+      );
       return { items, pages: pageCount, total };
     };
     return { fetchPage, calls };
@@ -90,6 +93,55 @@ describe("paginate (page-based sweep)", () => {
   });
 });
 
+describe("searchCommand — query optional when a filter narrows", () => {
+  // Point at an empty config dir with no env token, so a request that clears the query guard fails
+  // deterministically at auth (NO_TOKEN) rather than making a real network call.
+  let dir: string;
+  let savedToken: string | undefined;
+  let savedTeam: string | undefined;
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), "slack-axi-search-"));
+    process.env.SLACK_AXI_CONFIG_DIR = dir;
+    savedToken = process.env.SLACK_AXI_TOKEN;
+    savedTeam = process.env.SLACK_AXI_TEAM;
+    delete process.env.SLACK_AXI_TOKEN;
+    delete process.env.SLACK_AXI_TEAM;
+  });
+
+  afterEach(() => {
+    delete process.env.SLACK_AXI_CONFIG_DIR;
+    if (savedToken === undefined) delete process.env.SLACK_AXI_TOKEN;
+    else process.env.SLACK_AXI_TOKEN = savedToken;
+    if (savedTeam === undefined) delete process.env.SLACK_AXI_TEAM;
+    else process.env.SLACK_AXI_TEAM = savedTeam;
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("errors USAGE when neither a query nor a filter is given", async () => {
+    await expect(searchCommand([])).rejects.toMatchObject({ code: "USAGE" });
+  });
+
+  it("treats --type alone as insufficient (it is a post-filter, not a query)", async () => {
+    await expect(searchCommand(["--type", "im"])).rejects.toMatchObject({ code: "USAGE" });
+  });
+
+  it("accepts a narrowing filter with no query (clears the guard, then hits auth)", async () => {
+    // NO_TOKEN, not USAGE — proves the empty query was allowed because --in narrows the search.
+    await expect(searchCommand(["--in", "#eng"])).rejects.toMatchObject({ code: "NO_TOKEN" });
+  });
+
+  it("accepts --from alone with no query", async () => {
+    await expect(searchCommand(["--from", "alice"])).rejects.toMatchObject({ code: "NO_TOKEN" });
+  });
+
+  it("documents filters-only search in --help", async () => {
+    const help = await searchCommand(["--help"]);
+    expect(help).toBe(SEARCH_HELP);
+    expect(help).toContain("optional when a filter narrows");
+  });
+});
+
 describe("resolveUserId", () => {
   const TEAM = "T_TEST";
   let dir: string;
@@ -102,9 +154,21 @@ describe("resolveUserId", () => {
     const users = {
       fetched_at: Date.now(),
       users: {
-        U1: { id: "U1", name: "alice", real_name: "Alice Anderson", display_name: "alice", is_bot: false },
+        U1: {
+          id: "U1",
+          name: "alice",
+          real_name: "Alice Anderson",
+          display_name: "alice",
+          is_bot: false,
+        },
         U2: { id: "U2", name: "bob", real_name: "Bob Brown", display_name: "bobby", is_bot: false },
-        U3: { id: "U3", name: "alice2", real_name: "Alice Other", display_name: "alice", is_bot: false },
+        U3: {
+          id: "U3",
+          name: "alice2",
+          real_name: "Alice Other",
+          display_name: "alice",
+          is_bot: false,
+        },
       },
     };
     writeFileSync(join(usersDir, "users.json"), JSON.stringify(users));

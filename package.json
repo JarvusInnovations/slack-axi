@@ -21,21 +21,29 @@
   "scripts": {
     "build": "tsc && chmod +x dist/bin/slack-axi.js",
     "dev": "bun bin/slack-axi.ts",
+    "lint": "oxlint src bin test",
+    "format": "oxfmt src bin test",
+    "format:check": "oxfmt --check src bin test",
+    "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
     "test:watch": "vitest",
     "prepublishOnly": "bun run build"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "license": "MIT",
   "dependencies": {
     "@slack/web-api": "^7.16.0",
     "@toon-format/toon": "^2.3.0",
-    "axi-sdk-js": "^0.1.7"
+    "@tryfabric/mack": "github:JarvusInnovations/mack",
+    "axi-sdk-js": "^0.1.7",
+    "slackify-markdown": "^5.0.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "oxfmt": "^0.56.0",
+    "oxlint": "^1.71.0",
     "typescript": "^5.7.0",
     "vitest": "^4.1.8"
   }

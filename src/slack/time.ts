@@ -40,7 +40,9 @@ function tzOffsetMs(epochMs: number, tz: string): number {
     second: "2-digit",
     hour12: false,
   });
-  const parts = Object.fromEntries(dtf.formatToParts(new Date(epochMs)).map((p) => [p.type, p.value]));
+  const parts = Object.fromEntries(
+    dtf.formatToParts(new Date(epochMs)).map((p) => [p.type, p.value]),
+  );
   const asUTC = Date.UTC(
     Number(parts.year),
     Number(parts.month) - 1,
@@ -115,13 +117,16 @@ export function resolveWindow(
   if (opts.since !== undefined) {
     const span = parseSpanMs(opts.since);
     if (span === undefined) {
-      throw new AxiError(`Invalid --since '${opts.since}'`, "USAGE", ["Use a span like 7d, 24h, 90m, or 2w"]);
+      throw new AxiError(`Invalid --since '${opts.since}'`, "USAGE", [
+        "Use a span like 7d, 24h, 90m, or 2w",
+      ]);
     }
     return { oldestMs: now - span, endMs: now + 1, tz };
   }
 
   const endMs = opts.to !== undefined ? parseWhen(opts.to, tz, "end", now) : now + 1;
-  const oldestMs = opts.from !== undefined ? parseWhen(opts.from, tz, "start", now) : now - DEFAULT_WINDOW_MS;
+  const oldestMs =
+    opts.from !== undefined ? parseWhen(opts.from, tz, "start", now) : now - DEFAULT_WINDOW_MS;
 
   if (oldestMs >= endMs) {
     throw new AxiError("Resolved window is empty (--from is at or after --to)", "USAGE", [
@@ -136,7 +141,11 @@ export function resolveWindow(
  * instant (one batch's `endMs` == the next's `startMs`), so the set has no gap and no overlap; the
  * final batch's `endMs` is exactly the window's end. See specs/commands/catchup.md.
  */
-export function batchWindows(oldestMs: number, endMs: number, everyMs: number): Array<{ startMs: number; endMs: number }> {
+export function batchWindows(
+  oldestMs: number,
+  endMs: number,
+  everyMs: number,
+): Array<{ startMs: number; endMs: number }> {
   const batches: Array<{ startMs: number; endMs: number }> = [];
   for (let start = oldestMs; start < endMs; start += everyMs) {
     batches.push({ startMs: start, endMs: Math.min(start + everyMs, endMs) });

@@ -19,12 +19,21 @@ import { reactionsCommand, REACTIONS_HELP } from "./commands/reactions.js";
 import { searchCommand, SEARCH_HELP } from "./commands/search.js";
 import { setupCommand, SETUP_HELP } from "./commands/setup.js";
 import { userCommand, USER_HELP } from "./commands/user.js";
-import { draftCommand, DRAFT_HELP, reactCommand, REACT_HELP } from "./commands/write.js";
+import {
+  deleteCommand,
+  DELETE_HELP,
+  draftCommand,
+  DRAFT_HELP,
+  editCommand,
+  EDIT_HELP,
+  reactCommand,
+  REACT_HELP,
+} from "./commands/write.js";
 import { DESCRIPTION, readVersion } from "./meta.js";
 
 export const TOP_HELP = `usage: slack-axi [command] [args] [flags]
-commands[17]:
-  (none)=home, auth, doctor, channels, dms, members, user, read, thread, cite, search, catchup, react, reactions, download, draft, setup
+commands[19]:
+  (none)=home, auth, doctor, channels, dms, members, user, read, thread, cite, search, catchup, react, reactions, download, draft, edit, delete, setup
 flags[2]:
   --team <id> (per-command), --help, -v/--version
 examples:
@@ -36,7 +45,9 @@ examples:
   slack-axi react #eng <ts> :eyes:
   slack-axi reactions #eng <ts>
   slack-axi download F0B8Q0DCAA3 --out ./shots
-  slack-axi draft #eng "message"   (then: slack-axi draft send <id>)`;
+  slack-axi draft #eng "message"   (then: slack-axi draft send <id>)
+  slack-axi edit #eng <ts> "corrected text"   (own message; then: slack-axi draft send <id>)
+  slack-axi delete #eng <ts>                  (own message; then: slack-axi draft send <id>)`;
 
 const COMMAND_HELP: Record<string, string> = {
   auth: AUTH_HELP,
@@ -55,6 +66,8 @@ const COMMAND_HELP: Record<string, string> = {
   reactions: REACTIONS_HELP,
   download: DOWNLOAD_HELP,
   draft: DRAFT_HELP,
+  edit: EDIT_HELP,
+  delete: DELETE_HELP,
   setup: SETUP_HELP,
 };
 
@@ -81,6 +94,8 @@ export async function main(): Promise<void> {
       reactions: (args) => reactionsCommand(args),
       download: (args) => downloadCommand(args),
       draft: (args) => draftCommand(args),
+      edit: (args) => editCommand(args),
+      delete: (args) => deleteCommand(args),
       setup: (args) => setupCommand(args),
     },
     getCommandHelp: (command) => COMMAND_HELP[command],

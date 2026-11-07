@@ -9,7 +9,12 @@ const TEAM = "T024GATE8";
 describe("toUserMeta identity flags", () => {
   it("flags a Slack Connect member (different team_id) as external", () => {
     const u = toUserMeta(
-      { id: "U01FMB233RS", name: "ryan.mahoney", team_id: "T01F0DWNU7R", profile: { display_name: "Ryan" } },
+      {
+        id: "U01FMB233RS",
+        name: "ryan.mahoney",
+        team_id: "T01F0DWNU7R",
+        profile: { display_name: "Ryan" },
+      },
       TEAM,
     );
     expect(u.is_external).toBe(true);
@@ -28,13 +33,23 @@ describe("toUserMeta identity flags", () => {
   });
 
   it("flags restricted / ultra-restricted accounts as guests", () => {
-    expect(toUserMeta({ id: "U2", name: "g", team_id: TEAM, is_restricted: true }, TEAM).is_guest).toBe(true);
-    expect(toUserMeta({ id: "U3", name: "g", team_id: TEAM, is_ultra_restricted: true }, TEAM).is_guest).toBe(true);
+    expect(
+      toUserMeta({ id: "U2", name: "g", team_id: TEAM, is_restricted: true }, TEAM).is_guest,
+    ).toBe(true);
+    expect(
+      toUserMeta({ id: "U3", name: "g", team_id: TEAM, is_ultra_restricted: true }, TEAM).is_guest,
+    ).toBe(true);
   });
 
   it("carries is_bot, email, and title through when present", () => {
     const u = toUserMeta(
-      { id: "B1", name: "bot", team_id: TEAM, is_bot: true, profile: { email: "a@b.co", title: "CEO" } },
+      {
+        id: "B1",
+        name: "bot",
+        team_id: TEAM,
+        is_bot: true,
+        profile: { email: "a@b.co", title: "CEO" },
+      },
       TEAM,
     );
     expect(u.is_bot).toBe(true);
@@ -44,7 +59,9 @@ describe("toUserMeta identity flags", () => {
 });
 
 describe("userName / unresolvedLabel", () => {
-  const users: Record<string, UserMeta> = { U1: { id: "U1", name: "ryan", display_name: "Ryan", is_bot: false } };
+  const users: Record<string, UserMeta> = {
+    U1: { id: "U1", name: "ryan", display_name: "Ryan", is_bot: false },
+  };
 
   it("prefers display name when resolved", () => {
     expect(userName("U1", users)).toBe("Ryan");
@@ -58,7 +75,10 @@ describe("userName / unresolvedLabel", () => {
 
 describe("mentionedUserIds", () => {
   it("extracts ids from both plain and piped mention markup", () => {
-    expect(mentionedUserIds("hey <@U01ABC> and <@U02DEF|kristin> here")).toEqual(["U01ABC", "U02DEF"]);
+    expect(mentionedUserIds("hey <@U01ABC> and <@U02DEF|kristin> here")).toEqual([
+      "U01ABC",
+      "U02DEF",
+    ]);
   });
 
   it("returns nothing when there are no mentions", () => {

@@ -1,20 +1,36 @@
 import { AxiError } from "axi-sdk-js";
 import { takeBool, takeFlag } from "../flags.js";
-import { encodeObject, joinBlocks, renderHelp, renderList, truncate } from "../output.js";
+import {
+  anyTruncated,
+  encodeObject,
+  FULL_HINT,
+  joinBlocks,
+  renderHelp,
+  renderList,
+  truncate,
+} from "../output.js";
 import { activeSession, type Session } from "../session.js";
 import { allCachedUsers, ensureUsersByIds, type UserMeta } from "../slack/cache.js";
 import { summarizeFiles } from "../slack/files.js";
 import { formatText, mentionedUserIds, userName } from "../slack/format.js";
+import { summarizeLinks } from "../slack/links.js";
 import { getPermalink } from "../slack/permalink.js";
 import { summarizeReactions } from "../slack/reactions.js";
 import { channelLabel, resolveChannel } from "../slack/resolve.js";
 import { fetchReplies, fetchThread, fetchWindow, isBot, type Msg } from "../slack/threads.js";
-import { formatDate, formatDateTime, formatRange, formatTime, resolveWindow, tsToEpochMs } from "../slack/time.js";
+import {
+  formatDate,
+  formatDateTime,
+  formatRange,
+  formatTime,
+  resolveWindow,
+  tsToEpochMs,
+} from "../slack/time.js";
 import { dottedTs, handle } from "../slack/ts.js";
 
 export const READ_HELP = `usage: slack-axi read <channel> [flags]
 Reads a channel over a time window, threads inlined, paginated to completion.
-flags[8]:
+flags[9]:
   --since <span>   Relative window ending now: 7d, 24h, 90m (default: 7d)
   --from <when>    Window start: date (2026-04-23), datetime (2026-04-23T14:00), or span
   --to <when>      Window end (default: now)
@@ -77,10 +93,14 @@ export async function readCommand(args: string[]): Promise<string> {
   const repliesByParent = new Map<string, Msg[]>();
   if (f.threads === "full") {
     for (const parent of displayed) {
-      if (parent.replyCount > 0) repliesByParent.set(parent.ts, await fetchReplies(session, channel.id, parent.ts));
+      if (parent.replyCount > 0)
+        repliesByParent.set(parent.ts, await fetchReplies(session, channel.id, parent.ts));
     }
   }
-  await ensureUsersByIds(session, collectUserIds([...displayed, ...[...repliesByParent.values()].flat()]));
+  await ensureUsersByIds(
+    session,
+    collectUserIds([...displayed, ...[...repliesByParent.values()].flat()]),
+  );
   const users = allCachedUsers(session.teamId);
 
   // Build date-grouped blocks: each displayed parent followed by its inlined replies (a thread is a unit).
@@ -95,7 +115,12 @@ export async function readCommand(args: string[]): Promise<string> {
         rows.push(await buildRow(session, channel.id, r, users, window.tz, f, true));
       }
     } else if (parent.replyCount > 0 && f.threads === "summary") {
-      rows.push({ time: "", author: "", text: `↳ ${parent.replyCount} repl${parent.replyCount === 1 ? "y" : "ies"} (use \`thread ${channel.id} ${parent.ts}\`)`, ts: "" });
+      rows.push({
+        time: "",
+        author: "",
+        text: `↳ ${parent.replyCount} repl${parent.replyCount === 1 ? "y" : "ies"} (use \`thread ${channel.id} ${parent.ts}\`)`,
+        ts: "",
+      });
     }
     groups.set(date, rows);
   }
@@ -110,16 +135,27 @@ export async function readCommand(args: string[]): Promise<string> {
   const allRows = [...groups.values()].flat();
   const anyReactions = fillUniformColumn(allRows, "reactions");
   const anyFiles = fillUniformColumn(allRows, "files");
+  fillUniformColumn(allRows, "links");
 
   const blocks: string[] = [encodeObject(header)];
-  for (const [date, rows] of groups) blocks.push(`${date}:\n${indentLines(renderList("messages", rows), 2)}`);
+  for (const [date, rows] of groups)
+    blocks.push(`${date}:\n${indentLines(renderList("messages", rows), 2)}`);
 
   const help = [
-    f.threads !== "full" ? `Run \`slack-axi thread ${channel.id} <ts>\` to expand a thread` : undefined,
+    f.threads !== "full"
+      ? `Run \`slack-axi thread ${channel.id} <ts>\` to expand a thread`
+      : undefined,
     anyReactions ? `Run \`slack-axi reactions ${channel.id} <ts>\` to see who reacted` : undefined,
-    anyFiles ? "Run `slack-axi download <file-id...>` to fetch attachments (the [F…] ids above)" : undefined,
-    !complete ? `Showing the most recent ${f.limit} of ${total}; raise \`--limit <n>\` or narrow the window` : undefined,
-    !f.cite ? `Run \`slack-axi cite ${channel.id} <ts...>\` for permalinks to messages you cite` : undefined,
+    anyFiles
+      ? "Run `slack-axi download <file-id...>` to fetch attachments (the [F…] ids above)"
+      : undefined,
+    !complete
+      ? `Showing the most recent ${f.limit} of ${total}; raise \`--limit <n>\` or narrow the window`
+      : undefined,
+    !f.full && anyTruncated(allRows) ? FULL_HINT : undefined,
+    !f.cite
+      ? `Run \`slack-axi cite ${channel.id} <ts...>\` for permalinks to messages you cite`
+      : undefined,
   ].filter((l): l is string => Boolean(l));
 
   return joinBlocks(...blocks, renderHelp(help));
@@ -136,7 +172,8 @@ export async function threadCommand(args: string[]): Promise<string> {
   const session = await activeSession({ teamFlag: team.value });
   const channel = await resolveChannel(session, target);
   const msgs = await fetchThread(session, channel.id, dottedTs(ts));
-  if (msgs.length === 0) throw new AxiError("Thread not found", "MESSAGE_NOT_FOUND", ["Check the ts and channel"]);
+  if (msgs.length === 0)
+    throw new AxiError("Thread not found", "MESSAGE_NOT_FOUND", ["Check the ts and channel"]);
 
   await ensureUsersByIds(session, collectUserIds(msgs));
   const users = allCachedUsers(session.teamId);
@@ -146,25 +183,35 @@ export async function threadCommand(args: string[]): Promise<string> {
       const row: Record<string, unknown> = {
         time: formatDateTime(tsToEpochMs(m.ts), tz),
         author: authorName(m, users),
-        text: (i === 0 ? "" : "↳ ") + (full.present ? formatText(m.text, users) : truncate(formatText(m.text, users))),
+        text:
+          (i === 0 ? "" : "↳ ") +
+          (full.present ? formatText(m.text, users) : truncate(formatText(m.text, users))),
         ts: handle(m.ts),
         permalink: await getPermalink(session, channel.id, m.ts),
       };
       if (m.reactions && m.reactions.length > 0) row.reactions = summarizeReactions(m.reactions);
       if (m.files && m.files.length > 0) row.files = summarizeFiles(m.files);
+      if (m.links && m.links.length > 0) row.links = summarizeLinks(m.links);
       return row;
     }),
   );
   const anyReactions = fillUniformColumn(rows, "reactions");
   const anyFiles = fillUniformColumn(rows, "files");
+  fillUniformColumn(rows, "links");
 
   const help = [
     anyReactions ? `Run \`slack-axi reactions ${channel.id} <ts>\` to see who reacted` : undefined,
-    anyFiles ? "Run `slack-axi download <file-id...>` to fetch attachments (the [F…] ids above)" : undefined,
+    anyFiles
+      ? "Run `slack-axi download <file-id...>` to fetch attachments (the [F…] ids above)"
+      : undefined,
+    !full.present && anyTruncated(rows) ? FULL_HINT : undefined,
   ].filter((l): l is string => Boolean(l));
 
   return joinBlocks(
-    encodeObject({ channel: `${await channelLabel(session, channel)} (${channel.id})`, replies: msgs.length - 1 }),
+    encodeObject({
+      channel: `${await channelLabel(session, channel)} (${channel.id})`,
+      replies: msgs.length - 1,
+    }),
     renderList("messages", rows),
     help.length > 0 ? renderHelp(help) : "",
   );
@@ -200,7 +247,9 @@ function parseReadFlags(args: string[]): ReadFlags {
   const channel = full.rest.find((a) => !a.startsWith("-"));
   const mode = (threads.value ?? "full") as ThreadMode;
   if (!["full", "summary", "none"].includes(mode)) {
-    throw new AxiError(`Invalid --threads '${threads.value}'`, "USAGE", ["Use: full | summary | none"]);
+    throw new AxiError(`Invalid --threads '${threads.value}'`, "USAGE", [
+      "Use: full | summary | none",
+    ]);
   }
   const lim = limit.value ? Number.parseInt(limit.value, 10) : DEFAULT_LIMIT;
   return {
@@ -240,6 +289,7 @@ async function buildRow(
   if (f.cite) row.permalink = await getPermalink(session, channelId, msg.ts);
   if (msg.reactions && msg.reactions.length > 0) row.reactions = summarizeReactions(msg.reactions);
   if (msg.files && msg.files.length > 0) row.files = summarizeFiles(msg.files);
+  if (msg.links && msg.links.length > 0) row.links = summarizeLinks(msg.links);
   return row;
 }
 
@@ -247,7 +297,7 @@ async function buildRow(
  * Make an inline column uniform (auto-when-present): if any row carries a non-empty string under
  * `key`, ensure every row has the key (empty string when it had none) so the TOON table stays compact;
  * otherwise drop the key entirely so the column vanishes. Returns whether the column was applied. Used
- * for the `reactions` and `files` columns. See specs/behaviors/reactions.md + files.md.
+ * for the `reactions`, `files`, and `links` columns. See specs/behaviors/reactions.md + files.md + links.md.
  */
 function fillUniformColumn(rows: Array<Record<string, unknown>>, key: string): boolean {
   const any = rows.some((r) => typeof r[key] === "string" && (r[key] as string).length > 0);

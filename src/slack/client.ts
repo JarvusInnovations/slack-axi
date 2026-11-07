@@ -6,6 +6,8 @@ export interface TokenIdentity {
   teamName: string;
   userId: string;
   userName?: string;
+  /** Present for a bot token (`xoxb-`): the identity its messages carry as `bot_id`. */
+  botId?: string;
   url?: string;
   scopes: string[];
 }
@@ -26,7 +28,10 @@ export function webClient(token: string): WebClient {
 export async function validateToken(token: string): Promise<TokenIdentity> {
   const res = await fetch("https://slack.com/api/auth.test", {
     method: "POST",
-    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/x-www-form-urlencoded" },
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
   });
 
   const scopes = (res.headers.get("x-oauth-scopes") ?? "")
@@ -41,6 +46,7 @@ export async function validateToken(token: string): Promise<TokenIdentity> {
     team_id?: string;
     user?: string;
     user_id?: string;
+    bot_id?: string;
     url?: string;
   };
 
@@ -56,6 +62,7 @@ export async function validateToken(token: string): Promise<TokenIdentity> {
     teamName: body.team ?? "",
     userId: body.user_id ?? "",
     userName: body.user,
+    ...(body.bot_id ? { botId: body.bot_id } : {}),
     url: body.url,
     scopes,
   };

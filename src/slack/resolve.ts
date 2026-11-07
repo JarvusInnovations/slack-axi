@@ -64,7 +64,9 @@ export async function resolveChannel(session: Session, arg: string): Promise<Cha
 
 function suggestionsFor(channels: ChannelMeta[], target: string): string[] {
   const matches = suggestChannels(channels, target, 5);
-  return matches.length > 0 ? [`Did you mean: ${matches.map((c) => `#${c.name} (${c.id})`).join(", ")}`] : [];
+  return matches.length > 0
+    ? [`Did you mean: ${matches.map((c) => `#${c.name} (${c.id})`).join(", ")}`]
+    : [];
 }
 
 function commonPrefixLen(a: string, b: string): number {
@@ -90,12 +92,19 @@ function suggestChannels(channels: ChannelMeta[], query: string, limit: number):
       return { c, score };
     })
     .filter((s) => s.score >= 3)
-    .sort((a, b) => b.score - a.score || a.c.name.length - b.c.name.length || a.c.name.localeCompare(b.c.name));
+    .sort(
+      (a, b) =>
+        b.score - a.score || a.c.name.length - b.c.name.length || a.c.name.localeCompare(b.c.name),
+    );
   return scored.slice(0, limit).map((s) => s.c);
 }
 
 /** Rank cached channels by name similarity to a query (substring/prefix), best first. */
-export function fuzzyChannelMatches(channels: ChannelMeta[], query: string, limit: number): ChannelMeta[] {
+export function fuzzyChannelMatches(
+  channels: ChannelMeta[],
+  query: string,
+  limit: number,
+): ChannelMeta[] {
   const q = query.toLowerCase();
   return channels
     .filter((c) => c.name && c.name.toLowerCase().includes(q))

@@ -10,17 +10,27 @@ examples:
 export async function setupCommand(args: string[]): Promise<string> {
   if (args.includes("--help")) return SETUP_HELP;
   if (args[0] !== "hooks") {
-    throw new AxiError(`Unknown setup action: ${args[0] ?? "(none)"}`, "USAGE", ["Run `slack-axi setup hooks`"]);
+    throw new AxiError(`Unknown setup action: ${args[0] ?? "(none)"}`, "USAGE", [
+      "Run `slack-axi setup hooks`",
+    ]);
   }
 
   const errors: string[] = [];
-  installSessionStartHooks({ marker: "slack-axi", timeoutSeconds: 10, onError: (m) => errors.push(m) });
+  installSessionStartHooks({
+    marker: "slack-axi",
+    timeoutSeconds: 10,
+    onError: (m) => errors.push(m),
+  });
   if (errors.length > 0) {
     throw new AxiError("Hook installation reported problems", "HOOK_INSTALL_FAILED", errors);
   }
 
   return joinBlocks(
-    encodeBlock("hooks", { status: "installed", integrations: "Claude Code, Codex, OpenCode", marker: "slack-axi" }),
+    encodeBlock("hooks", {
+      status: "installed",
+      integrations: "Claude Code, Codex, OpenCode",
+      marker: "slack-axi",
+    }),
     renderHelp(["Restart your agent session to receive slack-axi ambient context"]),
   );
 }

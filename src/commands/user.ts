@@ -75,7 +75,11 @@ export async function userCommand(args: string[]): Promise<string> {
 }
 
 /** Map a `<id|@handle>` argument to a user id: ids pass through; handles resolve via the cached roster. */
-function toUserId(session: Session, target: string, cache: Record<string, UserMeta>): string | undefined {
+function toUserId(
+  session: Session,
+  target: string,
+  cache: Record<string, UserMeta>,
+): string | undefined {
   if (USER_ID_RE.test(target)) return target;
   if (cache[target]) return target; // a raw id that isn't U/W-shaped but is cached
   const r = resolveUserId(session, target);

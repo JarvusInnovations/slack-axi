@@ -26,7 +26,12 @@ describe("toFileMeta", () => {
       size: 161608,
       permalink: "https://x.slack.com/files/...",
     });
-    expect(f).toMatchObject({ id: "F0B8Q0DCAA3", name: "IMG_2731.jpg", filetype: "jpg", size: 161608 });
+    expect(f).toMatchObject({
+      id: "F0B8Q0DCAA3",
+      name: "IMG_2731.jpg",
+      filetype: "jpg",
+      size: 161608,
+    });
     expect(f.unavailable).toBeUndefined();
   });
 
@@ -35,7 +40,9 @@ describe("toFileMeta", () => {
   });
 
   it("flags an access-denied file as unavailable", () => {
-    expect(toFileMeta({ id: "F2", name: "secret.pdf", file_access: "access_denied" }).unavailable).toBe(true);
+    expect(
+      toFileMeta({ id: "F2", name: "secret.pdf", file_access: "access_denied" }).unavailable,
+    ).toBe(true);
   });
 
   it("falls back to the id when no name/title is present", () => {

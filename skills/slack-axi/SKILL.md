@@ -40,6 +40,11 @@ arguments accept `#name`, bare `name`, or an id (`C…`/`G…`/`D…`) interchan
   reactions — free, already in the data. For **who** reacted, use the `reactions` command below.
 - `read`/`thread` also show a `files` column when a message has attachments — `name (type, size) [F-id]`,
   free from the same payload. Use the `F-id` with `download` to fetch the bytes.
+- `read`/`thread` show a `links` column when a message carries a link unfurl — `title <url>`, URL always
+  whole. URLs in message text are never cut by truncation, and `<url|label>` links render as
+  `label (url)` so the href is always recoverable.
+- When any text was truncated, `help[]` says so and names `--full`; if you see the hint and need the
+  full text, re-run with `--full` (also on `catchup`).
 
 ## Files / attachments
 
@@ -58,6 +63,8 @@ arguments accept `#name`, bare `name`, or an id (`C…`/`G…`/`D…`) interchan
 ## Search (find a thing — NOT a window sweep)
 
 - `npx -y slack-axi search "<query>"` — across the workspace.
+- The query is **optional** when a filter narrows the search: `search --in #eng --from alice --after
+  2026-05-01` sweeps by filter alone (no free-text term needed).
 - Modifiers: `--in <channel>`, `--from <@user>` (sender), `--with <@user>` (conversations including a
   person), `--after <date|span>`, `--before <date|span>`, `--limit <n>`, `--cite`.
 - To read a channel over a window completely, use `read --from --to`, not `search`.
@@ -76,3 +83,20 @@ Read/search rows carry a compact `ts` handle, not a full permalink. To turn hand
   and walks you through creating + installing a Slack app, then `auth login --token xoxp-…`.
 - `npx -y slack-axi setup hooks` — install a SessionStart hook so each agent session starts with the
   slack-axi home view as ambient context.
+
+## Write (react, draft, edit, delete — nothing happens without `draft send`)
+
+- `npx -y slack-axi react <channel> <ts> :emoji:` — add a reaction (idempotent).
+- `npx -y slack-axi draft <channel> "<text>" [--reply <ts>]` — prepare a message; it is NOT sent.
+  Review the echoed draft, then `npx -y slack-axi draft send <id>` posts it.
+- **Write Markdown.** It is rendered for the workspace mode (`npx -y slack-axi auth mode` shows/sets it):
+  `human` (user token) → mrkdwn text; `bot` (bot token) → Block Kit, chunked. `**bold**` → `*bold*`, a
+  single `*x*` is italic, `# H` → bold line, `- x` → `• x`, `[t](u)` → `<u|t>`. Hand-written `<@U…>`,
+  `<url|label>`, `•` pass through. `--raw` skips rendering; `--preview` shows the rendering, saves nothing.
+- `npx -y slack-axi edit <channel> <ts> "<new markdown>"` or `edit <sent-draft-id> "<new markdown>"` — prepare an
+  edit of a message **this token posted**; the draft shows old → new. `draft send <id>` applies it.
+- `npx -y slack-axi delete <channel> <ts>` or `delete <sent-draft-id>` — prepare deletion of a message
+  this token posted; `draft send <id>` applies it.
+- Ownership is checked when the draft is prepared (user id for a user token, bot id for a bot token);
+  someone else's message → `NOT_MESSAGE_AUTHOR`, no draft, no override. Post a threaded follow-up instead.
+- `npx -y slack-axi draft list` / `draft discard <id>` — pending drafts (kind + status) / drop one.

@@ -39,10 +39,14 @@ export async function downloadCommand(args: string[]): Promise<string> {
       // A missing files:read scope blocks every download — surface it once as a command-level failure
       // rather than reporting it per id.
       if (ax.code === "SCOPE_MISSING") {
-        throw new AxiError("Cannot download: token is missing the `files:read` scope", "SCOPE_MISSING", [
-          "Re-run `slack-axi auth setup`, add `files:read`, and re-install the app, then retry",
-          "Run `slack-axi doctor` to confirm scope coverage",
-        ]);
+        throw new AxiError(
+          "Cannot download: token is missing the `files:read` scope",
+          "SCOPE_MISSING",
+          [
+            "Re-run `slack-axi auth setup`, add `files:read`, and re-install the app, then retry",
+            "Run `slack-axi doctor` to confirm scope coverage",
+          ],
+        );
       }
       failed.push({ id, reason: ax.code });
     }
@@ -56,10 +60,18 @@ export async function downloadCommand(args: string[]): Promise<string> {
     );
   }
 
-  const rows = done.map((d) => ({ file: d.id, name: d.name, type: d.filetype, size: d.size, path: d.path }));
+  const rows = done.map((d) => ({
+    file: d.id,
+    name: d.name,
+    type: d.filetype,
+    size: d.size,
+    path: d.path,
+  }));
   const help = [
     "Open a saved path with your file-reading tool to view the image/PDF",
-    failed.length > 0 ? `Failed: ${failed.map((f) => `${f.id} (${f.reason})`).join(", ")}` : undefined,
+    failed.length > 0
+      ? `Failed: ${failed.map((f) => `${f.id} (${f.reason})`).join(", ")}`
+      : undefined,
   ].filter((l): l is string => Boolean(l));
 
   return joinBlocks(

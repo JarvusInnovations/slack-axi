@@ -1,11 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
-import {
-  listWorkspaceIds,
-  manifestPath,
-  setupHtmlPath,
-  setupStatePath,
-} from "../config.js";
+import { listWorkspaceIds, manifestPath, setupHtmlPath, setupStatePath } from "../config.js";
 import { REQUIRED_SCOPES } from "../slack/scopes.js";
 
 /** Where to start "Create an app from a manifest". */
@@ -87,7 +82,14 @@ export function setupProgress(): SetupProgress {
     return { appCreated: true, tokenStored, done: 2, total: 2, complete: true, next: undefined };
   }
   const done = appCreated ? 1 : 0;
-  return { appCreated, tokenStored, done, total: 2, complete: false, next: appCreated ? "token_stored" : "app_created" };
+  return {
+    appCreated,
+    tokenStored,
+    done,
+    total: 2,
+    complete: false,
+    next: appCreated ? "token_stored" : "app_created",
+  };
 }
 
 /** Build a Slack app manifest (YAML) pre-filled with the user-token scopes slack-axi needs. */

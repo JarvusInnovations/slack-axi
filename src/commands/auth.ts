@@ -1,9 +1,14 @@
 import { AxiError } from "axi-sdk-js";
 import {
   getDefaultTeam,
+  getStoredToken,
+  isMode,
   listWorkspaces,
   removeWorkspace,
+  resolveActiveToken,
   setDefaultTeam,
+  setWorkspaceMode,
+  workspaceMode,
   writeStoredToken,
 } from "../config.js";
 import { takeBool, takeFlag } from "../flags.js";
@@ -24,11 +29,12 @@ import { toAxiError } from "../slack/errors.js";
 import { missingScopes } from "../slack/scopes.js";
 
 export const AUTH_HELP = `usage: slack-axi auth <subcommand> [flags]
-subcommands[5]:
+subcommands[6]:
   setup                    Progressive guided setup: create an app from a manifest, then log in
-  login --token <xoxp-...> Validate and store a token (derives team/user/scopes)
+  login --token <xoxp-...> Validate and store a token (derives team/user/scopes/mode)
   workspaces               List authenticated workspaces (default marked)
   use <team>               Set the default workspace
+  mode [human|bot|auto]    Show or set how outgoing text is rendered (mrkdwn text vs Block Kit; auto = derive)
   revoke <team>            Delete a workspace's stored token
 setup flags[4]:
   --name <name>            App display name in the manifest (default: slack-axi)
@@ -59,13 +65,71 @@ export async function authCommand(args: string[]): Promise<string> {
       return workspaces();
     case "use":
       return use(rest);
+    case "mode":
+      return mode(rest);
     case "revoke":
       return revoke(rest);
     default:
       throw new AxiError(`Unknown auth subcommand: ${sub}`, "USAGE", [
-        "Subcommands: setup, login, workspaces, use, revoke",
+        "Subcommands: setup, login, workspaces, use, mode, revoke",
       ]);
   }
+}
+
+/** Show or set a workspace's outgoing-rendering mode. See specs/behaviors/mrkdwn.md. */
+function mode(args: string[]): string {
+  const team = takeFlag(args, "--team");
+  const value = team.rest.find((a) => !a.startsWith("-"));
+  const teamId = team.value ?? resolveActiveToken({}).teamId;
+  if (!teamId) {
+    throw new AxiError("No stored workspace to set a mode on", "TEAM_REQUIRED", [
+      "Pass --team <id>, or set SLACK_AXI_MODE=human|bot for an env-token run",
+    ]);
+  }
+  const stored = getStoredToken(teamId);
+  if (!stored) {
+    throw new AxiError(`Workspace ${teamId} is not authenticated`, "TEAM_NOT_FOUND", [
+      `Authenticated: ${
+        listWorkspaces()
+          .map((w) => w.team_id)
+          .join(", ") || "(none)"
+      }`,
+    ]);
+  }
+  const workspace = `${stored.team_name} (${stored.team_id})`;
+  if (!value) {
+    return encodeBlock("mode", {
+      workspace,
+      mode: workspaceMode(stored),
+      source: stored.mode
+        ? "set with `auth mode`"
+        : `derived from the token (${stored.bot_id ? "bot" : "user"})`,
+    });
+  }
+  if (value === "auto") {
+    if (!stored.mode) {
+      return encodeBlock("mode", {
+        workspace,
+        mode: workspaceMode(stored),
+        note: "already derived (no-op)",
+      });
+    }
+    setWorkspaceMode(teamId, undefined);
+    const cleared = getStoredToken(teamId);
+    return encodeBlock("mode", {
+      workspace,
+      mode: cleared ? workspaceMode(cleared) : "human",
+      source: "derived from the token (override cleared)",
+    });
+  }
+  if (!isMode(value)) {
+    throw new AxiError(`Unknown mode '${value}'`, "USAGE", ["Use: human | bot | auto"]);
+  }
+  if (stored.mode === value) {
+    return encodeBlock("mode", { workspace, mode: value, note: "already set (no-op)" });
+  }
+  setWorkspaceMode(teamId, value);
+  return encodeBlock("mode", { workspace, mode: value, source: "set with `auth mode`" });
 }
 
 function setup(args: string[]): string {
@@ -108,7 +172,10 @@ function setup(args: string[]): string {
 
   if (progress.next === "app_created") {
     blocks.push(
-      encodeBlock("files", { manifest: collapseHome(manifestFile), setup_page: collapseHome(htmlFile) }),
+      encodeBlock("files", {
+        manifest: collapseHome(manifestFile),
+        setup_page: collapseHome(htmlFile),
+      }),
     );
     help = [
       `Open ${collapseHome(htmlFile)} (or ${NEW_APP_URL}) → "From an app manifest" → pick your workspace → paste the manifest from ${collapseHome(manifestFile)}`,
@@ -169,6 +236,7 @@ async function login(args: string[]): Promise<string> {
     team_id: identity.teamId,
     team_name: identity.teamName,
     user_id: identity.userId,
+    ...(identity.botId ? { bot_id: identity.botId } : {}),
     user_name: identity.userName,
     token,
     scopes: identity.scopes,
@@ -179,13 +247,17 @@ async function login(args: string[]): Promise<string> {
   const summary = encodeBlock("authenticated", {
     workspace: `${identity.teamName} (${identity.teamId})`,
     user: identity.userName ? `${identity.userName} (${identity.userId})` : identity.userId,
+    ...(identity.botId ? { bot: identity.botId } : {}),
+    mode: identity.botId ? "bot (Block Kit)" : "human (mrkdwn text)",
     scopes: missing.length === 0 ? "all required scopes granted" : `missing ${missing.length}`,
     default: getDefaultTeam() === identity.teamId,
   });
 
   const help =
     missing.length > 0
-      ? renderHelp([`Add missing scopes (${missing.join(", ")}) via \`slack-axi auth setup\`, then re-install + re-login`])
+      ? renderHelp([
+          `Add missing scopes (${missing.join(", ")}) via \`slack-axi auth setup\`, then re-install + re-login`,
+        ])
       : "";
   return joinBlocks(summary, help);
 }
@@ -203,6 +275,7 @@ function workspaces(): string {
     team: w.team_id,
     name: w.team_name,
     user: w.user_name ?? w.user_id,
+    mode: workspaceMode(w),
     default: w.team_id === def,
   }));
   return joinBlocks(
@@ -217,7 +290,11 @@ function use(args: string[]): string {
   const known = listWorkspaces().some((w) => w.team_id === team);
   if (!known) {
     throw new AxiError(`Workspace ${team} is not authenticated`, "TEAM_NOT_FOUND", [
-      `Authenticated: ${listWorkspaces().map((w) => w.team_id).join(", ") || "(none)"}`,
+      `Authenticated: ${
+        listWorkspaces()
+          .map((w) => w.team_id)
+          .join(", ") || "(none)"
+      }`,
     ]);
   }
   if (getDefaultTeam() === team) return encodeBlock("default", `${team} already default (no-op)`);

@@ -45,7 +45,11 @@ export async function reactionsCommand(args: string[]): Promise<string> {
   await ensureUsers(session);
   const users = allCachedUsers(session.teamId);
 
-  const author = message.user ? userName(message.user, users) : message.botId ? "(bot)" : "(system)";
+  const author = message.user
+    ? userName(message.user, users)
+    : message.botId
+      ? "(bot)"
+      : "(system)";
   const preview = truncate(formatText(message.text, users), 120);
   const header: Record<string, unknown> = {
     workspace: `${session.teamName ?? session.teamId} (${session.teamId})`,
@@ -57,7 +61,10 @@ export async function reactionsCommand(args: string[]): Promise<string> {
 
   if (message.reactions.length === 0) {
     return joinBlocks(
-      encodeObject({ ...header, reactions: `0 reactions on ${label} message ${handle(message.ts)}` }),
+      encodeObject({
+        ...header,
+        reactions: `0 reactions on ${label} message ${handle(message.ts)}`,
+      }),
     );
   }
 

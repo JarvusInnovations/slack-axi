@@ -39,7 +39,10 @@ export async function citeCommand(args: string[]): Promise<string> {
   );
 
   return joinBlocks(
-    encodeObject({ workspace: `${session.teamName ?? session.teamId} (${session.teamId})`, channel: `${await channelLabel(session, channel)} (${channel.id})` }),
+    encodeObject({
+      workspace: `${session.teamName ?? session.teamId} (${session.teamId})`,
+      channel: `${await channelLabel(session, channel)} (${channel.id})`,
+    }),
     renderList("citations", rows),
   );
 }

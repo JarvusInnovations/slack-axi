@@ -1,5 +1,6 @@
 import type { Session } from "../session.js";
 import { type FileMeta, toFileMeta } from "./files.js";
+import { type LinkMeta, linksFromAttachments } from "./links.js";
 import { type ReactionCount, toReactionCount } from "./reactions.js";
 import { epochMsToTs, tsExclusiveBefore } from "./time.js";
 
@@ -17,6 +18,8 @@ export interface Msg {
   reactions?: ReactionCount[];
   /** Attachment metadata (no bytes); the `id` is the handle for `download`. See files.ts. */
   files?: FileMeta[];
+  /** Link-unfurl attachments (title + whole URL), from `attachments[]`. See links.ts. */
+  links?: LinkMeta[];
 }
 
 export function isBot(msg: Msg): boolean {
@@ -39,8 +42,15 @@ function toMsg(raw: Record<string, unknown>): Msg {
     ...(Array.isArray(raw.files) && raw.files.length > 0
       ? { files: (raw.files as Record<string, unknown>[]).map(toFileMeta) }
       : {}),
+    ...(() => {
+      const links = linksFromAttachments(raw.attachments);
+      return links.length > 0 ? { links } : {};
+    })(),
   };
 }
+
+/** Normalize a raw history/replies message (exported for tests). */
+export const toMessage = toMsg;
 
 const byTsAsc = (a: Msg, b: Msg) => Number.parseFloat(a.ts) - Number.parseFloat(b.ts);
 
@@ -50,7 +60,12 @@ const byTsAsc = (a: Msg, b: Msg) => Number.parseFloat(a.ts) - Number.parseFloat(
  * one microsecond before `endMs`) so adjacent windows/batches tile with no gap and no overlap.
  * See specs/behaviors/time-and-completeness.md.
  */
-export async function fetchWindow(session: Session, channelId: string, oldestMs: number, endMs: number): Promise<Msg[]> {
+export async function fetchWindow(
+  session: Session,
+  channelId: string,
+  oldestMs: number,
+  endMs: number,
+): Promise<Msg[]> {
   const messages: Msg[] = [];
   let cursor: string | undefined;
   do {
@@ -69,7 +84,11 @@ export async function fetchWindow(session: Session, channelId: string, oldestMs:
 }
 
 /** A whole thread (parent + replies), paginated to completion, oldest→newest. */
-export async function fetchThread(session: Session, channelId: string, parentTs: string): Promise<Msg[]> {
+export async function fetchThread(
+  session: Session,
+  channelId: string,
+  parentTs: string,
+): Promise<Msg[]> {
   const messages: Msg[] = [];
   let cursor: string | undefined;
   do {
@@ -85,7 +104,45 @@ export async function fetchThread(session: Session, channelId: string, parentTs:
   return messages.sort(byTsAsc);
 }
 
+/**
+ * One message by channel + ts, or `undefined` when no such message exists there. `history` is
+ * queried first (`oldest = latest = ts`, inclusive); a thread reply is not returned by `history`, so a
+ * miss falls through to `replies`, which returns the reply itself for a reply ts. Used to check
+ * ownership before an edit/delete is prepared. See specs/commands/write.md.
+ */
+export async function fetchMessage(
+  session: Session,
+  channelId: string,
+  ts: string,
+): Promise<Msg | undefined> {
+  const norm = (list: unknown) =>
+    (Array.isArray(list) ? list : [])
+      .map((m) => toMsg(m as Record<string, unknown>))
+      .find((m) => m.ts === ts);
+  const hist = await session.client.conversations.history({
+    channel: channelId,
+    oldest: ts,
+    latest: ts,
+    inclusive: true,
+    limit: 1,
+  });
+  const fromHistory = norm(hist.messages);
+  if (fromHistory) return fromHistory;
+  try {
+    const rep = await session.client.conversations.replies({ channel: channelId, ts, limit: 1 });
+    return norm(rep.messages);
+  } catch (err) {
+    const code = (err as { data?: { error?: string } })?.data?.error;
+    if (code === "thread_not_found" || code === "message_not_found") return undefined;
+    throw err;
+  }
+}
+
 /** Replies to a thread, excluding the parent. */
-export async function fetchReplies(session: Session, channelId: string, parentTs: string): Promise<Msg[]> {
+export async function fetchReplies(
+  session: Session,
+  channelId: string,
+  parentTs: string,
+): Promise<Msg[]> {
   return (await fetchThread(session, channelId, parentTs)).filter((m) => m.ts !== parentTs);
 }
