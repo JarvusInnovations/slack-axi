@@ -1,4 +1,4 @@
-import { markdownToBlocks } from "@tryfabric/mack";
+import { markdownToBlocks } from "@jarvus/mack";
 import type { KnownBlock } from "@slack/web-api";
 import { protectSlackTokens, restoreSlackTokens } from "./mrkdwn.js";
 
