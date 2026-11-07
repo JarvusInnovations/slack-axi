@@ -41,7 +41,7 @@ there is no team id until login). See [architecture.md](../architecture.md) for 
 ### `auth login --token <xoxp-…> [--team <id>]`
 
 Validates the token via `auth.test`, derives `team`, `team_name`, `user_id`, `bot_id` (bot tokens),
-and granted `scopes` — the **mode** follows from `bot_id` (`bot` when present, else `human`; see
+and granted `scopes` — the **mode** follows from `bot_id` or the `xoxb-` prefix (`bot` when either, else `human`; see
 [mrkdwn.md](../behaviors/mrkdwn.md)) unless overridden with `auth mode`, and writes
 `workspaces/<TEAM_ID>/token.json` (mode 0600). First stored workspace becomes the default. On an
 invalid token → `AUTH_INVALID`. If the token's team mismatches an explicit `--team` → error. The

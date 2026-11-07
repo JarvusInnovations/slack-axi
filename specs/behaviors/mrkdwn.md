@@ -22,7 +22,8 @@ stored. Reading commands are unaffected.
 
 ### Mode
 
-- Derived from the identity captured at `auth login`: `bot_id` present → `bot`, else `human`. An
+- Derived from the stored token: a recorded `bot_id` **or** an `xoxb-` prefix (records written before
+  `bot_id` was captured) → `bot`, else `human`. An
   explicit override is stored on the workspace record (`token.json` → `mode`). For an env-supplied
   token the mode is derived from the identity when first needed.
 - Override: `slack-axi auth mode <human|bot> [--team <id>]` sets it per workspace (`auth mode auto`
