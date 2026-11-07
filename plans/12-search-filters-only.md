@@ -4,7 +4,7 @@ depends: [04-search, 08-search-coverage]
 specs:
   - specs/commands/search.md
 issues: []
-pr: https://github.com/folderparr/slack-axi/pull/1
+pr: 17
 ---
 
 # 12 — search: query optional when a filter narrows
