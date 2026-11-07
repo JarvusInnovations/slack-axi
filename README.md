@@ -54,6 +54,9 @@ slack-axi cite <channel> <ts…>  # permalinks + the { channel, ts, permalink } 
 slack-axi react <channel> <ts> :emoji:                  # reactions:write
 slack-axi draft <channel> "<text>" [--reply <ts>]       # prepare a message (does NOT send)
 slack-axi draft send <id>       # the explicit, separate step that posts
+slack-axi edit <channel> <ts> "<text>"   # prepare an edit of YOUR OWN message (or: edit <sent-draft-id> "<text>")
+slack-axi delete <channel> <ts>           # prepare deletion of YOUR OWN message (or: delete <sent-draft-id>)
+                                # … both applied by the same `draft send <id>` step
 slack-axi setup hooks           # install the SessionStart ambient-context hook
 ```
 
@@ -63,7 +66,9 @@ contextual `help[]` next steps; errors are structured with actionable suggestion
 ### Capabilities
 
 Read + **safe-draft**: full read/search/sweep, plus reactions and message *drafts you approve*. Nothing
-posts without an explicit `draft send`.
+posts, changes, or disappears without an explicit `draft send` — `edit`/`delete` prepare drafts too, and
+only for messages the token itself posted (checked against the authed user id, or the bot id for a bot
+token); there is no override.
 
 ## Development
 

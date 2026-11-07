@@ -9,6 +9,8 @@ export interface StoredToken {
   team_name: string;
   user_id: string;
   user_name?: string;
+  /** Bot identity (`B…`) for a bot token; messages it posts carry this as `bot_id`. */
+  bot_id?: string;
   token: string;
   scopes: string[];
   obtained_at: string;
@@ -25,6 +27,7 @@ export interface ActiveToken {
   teamName: string | undefined;
   userId: string | undefined;
   userName: string | undefined;
+  botId: string | undefined;
   scopes: string[] | undefined;
   source: "env" | "flag" | "default" | "single";
 }
@@ -76,6 +79,12 @@ export interface Draft {
   channel_id: string;
   channel: string;
   reply_to?: string;
+  /** What `draft send` does: post a new message (default when absent), edit, or delete. */
+  kind?: "post" | "edit" | "delete";
+  /** For edit/delete: the ts of the token's own message being changed/removed. */
+  target_ts?: string;
+  /** For edit/delete: the target's text at preparation time (so the review shows old → new). */
+  previous_text?: string;
   text: string;
   created_at: string;
   sent?: { ts: string; permalink: string; at: string };
@@ -204,6 +213,7 @@ export function resolveActiveToken(options: {
       teamName: stored?.team_name,
       userId: stored?.user_id,
       userName: stored?.user_name,
+      botId: stored?.bot_id,
       scopes: stored?.scopes,
       source: "env",
     };
@@ -249,6 +259,7 @@ function fromStored(teamId: string, source: ActiveToken["source"]): ActiveToken 
     teamName: stored.team_name,
     userId: stored.user_id,
     userName: stored.user_name,
+    botId: stored.bot_id,
     scopes: stored.scopes,
     source,
   };

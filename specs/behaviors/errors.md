@@ -22,6 +22,8 @@ framework (`AxiError`, `exitCodeForError`).
 | `channel_not_found` | `CHANNEL_NOT_FOUND` | `Run 'slack-axi channels' to list yours, or 'slack-axi search channels <q>'` + fuzzy matches |
 | `not_in_channel` | `NOT_IN_CHANNEL` | `You're not a member of <channel>; join it in Slack or use 'slack-axi channels --all' to confirm the id` |
 | `thread_not_found` / `message_not_found` | `MESSAGE_NOT_FOUND` | `Check the ts; run 'slack-axi read <channel>' to find the message` |
+| `cant_update_message` / `cant_delete_message` / own-message check fails | `NOT_MESSAGE_AUTHOR` | `Only the author can edit/delete; this message is by <name>` (see [write.md](../commands/write.md)) |
+| `edit_window_closed` | `EDIT_WINDOW_CLOSED` | `This workspace no longer allows editing a message this old` |
 | `ratelimited` | `RATE_LIMITED` | handled by SDK retry; if exhausted, `Retry after <n>s` |
 | `not_authed` / no token resolved | `NO_TOKEN` | `Set SLACK_AXI_TOKEN or run 'slack-axi auth login'` |
 
@@ -37,6 +39,8 @@ suggestion — never a raw stack trace.
 
 - `react` on an emoji already present → `reaction: :x: already on message (no-op)`, exit 0.
 - `draft send` on an already-sent draft → acknowledges the prior send, exit 0.
+- `draft send` of a `delete` draft whose message is already gone → `deleted: … (already gone — no-op)`,
+  exit 0.
 - Reserve non-zero exit only for intents that genuinely cannot be satisfied. See
   [principles.md → Writes are safe by default](../principles.md#writes-are-safe-by-default).
 

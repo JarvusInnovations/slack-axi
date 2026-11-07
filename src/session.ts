@@ -11,7 +11,33 @@ export interface Session {
   /** The authenticated user's id — surfaced so read-surface output can state whose view it reflects. */
   userId?: string;
   userName?: string;
+  /** Bot identity (`B…`) when the token is a bot token; its messages carry this as `bot_id`. */
+  botId?: string;
   client: WebClient;
+}
+
+/** The identity a token's writes act as. See specs/commands/write.md → The token's identity. */
+export interface Identity {
+  userId?: string;
+  botId?: string;
+}
+
+/**
+ * The session's identity, resolving it with a single `auth.test` when the token came from the
+ * environment with no stored record (so `userId` is unknown). Cached on the session.
+ */
+export async function ensureIdentity(session: Session): Promise<Identity> {
+  if (!session.userId) {
+    try {
+      const identity = await validateToken(session.token);
+      session.userId = identity.userId;
+      session.userName = session.userName ?? identity.userName;
+      session.botId = session.botId ?? identity.botId;
+    } catch (err) {
+      throw toAxiError(err, { team: session.teamId });
+    }
+  }
+  return { userId: session.userId, botId: session.botId };
 }
 
 /**
@@ -27,6 +53,7 @@ export async function activeSession(
   let teamName = active.teamName;
   let userId = active.userId;
   let userName = active.userName;
+  let botId = active.botId;
   if (!teamId) {
     try {
       const identity = await validateToken(active.token);
@@ -34,6 +61,7 @@ export async function activeSession(
       teamName = identity.teamName;
       userId = userId ?? identity.userId;
       userName = userName ?? identity.userName;
+      botId = botId ?? identity.botId;
     } catch (err) {
       throw toAxiError(err, options.teamFlag ? { team: options.teamFlag } : {});
     }
@@ -44,6 +72,7 @@ export async function activeSession(
     teamName,
     userId,
     userName,
+    botId,
     client: webClient(active.token),
   };
 }
