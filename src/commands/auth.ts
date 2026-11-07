@@ -3,6 +3,7 @@ import {
   getDefaultTeam,
   getStoredToken,
   isMode,
+  isBotToken,
   listWorkspaces,
   removeWorkspace,
   resolveActiveToken,
@@ -103,7 +104,7 @@ function mode(args: string[]): string {
       mode: workspaceMode(stored),
       source: stored.mode
         ? "set with `auth mode`"
-        : `derived from the token (${stored.bot_id ? "bot" : "user"})`,
+        : `derived from the token (${isBotToken(stored) ? "bot" : "user"})`,
     });
   }
   if (value === "auto") {
