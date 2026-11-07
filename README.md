@@ -52,11 +52,12 @@ slack-axi catchup [--since 1d] [--match q] [--in ...] [--full]   # scoped multi-
 slack-axi catchup --every 1w …  # plan a month+ catch-up as weekly batches
 slack-axi cite <channel> <ts…>  # permalinks + the { channel, ts, permalink } citation shape
 slack-axi react <channel> <ts> :emoji:                  # reactions:write
-slack-axi draft <channel> "<text>" [--reply <ts>]       # prepare a message (does NOT send)
+slack-axi draft <channel> "<markdown>" [--reply <ts>] [--raw] [--preview]   # prepare a message (does NOT send)
 slack-axi draft send <id>       # the explicit, separate step that posts
-slack-axi edit <channel> <ts> "<text>"   # prepare an edit of YOUR OWN message (or: edit <sent-draft-id> "<text>")
+slack-axi edit <channel> <ts> "<markdown>"   # prepare an edit of YOUR OWN message (or: edit <sent-draft-id> "…")
 slack-axi delete <channel> <ts>           # prepare deletion of YOUR OWN message (or: delete <sent-draft-id>)
                                 # … both applied by the same `draft send <id>` step
+slack-axi auth mode [human|bot|auto]   # how outgoing Markdown is rendered (see below)
 slack-axi setup hooks           # install the SessionStart ambient-context hook
 ```
 
@@ -69,6 +70,32 @@ Read + **safe-draft**: full read/search/sweep, plus reactions and message *draft
 posts, changes, or disappears without an explicit `draft send` — `edit`/`delete` prepare drafts too, and
 only for messages the token itself posted (checked against the authed user id, or the bot id for a bot
 token); there is no override.
+
+### Writing messages: write Markdown
+
+`draft` and `edit` take **Markdown** and render it to Slack's dialect for the workspace **mode**
+(`slack-axi auth mode` shows or sets it; derived from the token at login):
+
+| Mode | Token | Renders to | Why |
+| --- | --- | --- | --- |
+| `human` (default) | user token `xoxp-` | mrkdwn text | stays editable with formatting intact in the Slack client |
+| `bot` | bot token `xoxb-` | Block Kit (≤50 blocks per message, one table per message) + text fallback | real headers, lists, tables; nothing is hand-edited |
+
+Human-mode before/after:
+
+| Markdown | mrkdwn |
+| --- | --- |
+| `**bold**` | `*bold*` |
+| `*em*` / `_em_` | `_em_` (a single `*` is italic — write `**` for bold) |
+| `~~gone~~` | `~gone~` |
+| `# Heading` | `*Heading*` |
+| `- item` (nesting kept) | `• item` |
+| `[text](url)` | `<url\|text>` |
+| `` `code` ``, fences, `> quote` | unchanged |
+
+Slack-native tokens you write by hand (`<@U…>`, `<#C…\|name>`, `<!here>`, `<url\|label>`, `•` bullets)
+pass through untouched in both modes. `--raw` skips rendering entirely; `--preview` prints the
+rendering without saving a draft. See `specs/behaviors/mrkdwn.md`.
 
 ## Development
 

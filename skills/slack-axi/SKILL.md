@@ -89,7 +89,11 @@ Read/search rows carry a compact `ts` handle, not a full permalink. To turn hand
 - `npx -y slack-axi react <channel> <ts> :emoji:` — add a reaction (idempotent).
 - `npx -y slack-axi draft <channel> "<text>" [--reply <ts>]` — prepare a message; it is NOT sent.
   Review the echoed draft, then `npx -y slack-axi draft send <id>` posts it.
-- `npx -y slack-axi edit <channel> <ts> "<new text>"` or `edit <sent-draft-id> "<new text>"` — prepare an
+- **Write Markdown.** It is rendered for the workspace mode (`npx -y slack-axi auth mode` shows/sets it):
+  `human` (user token) → mrkdwn text; `bot` (bot token) → Block Kit, chunked. `**bold**` → `*bold*`, a
+  single `*x*` is italic, `# H` → bold line, `- x` → `• x`, `[t](u)` → `<u|t>`. Hand-written `<@U…>`,
+  `<url|label>`, `•` pass through. `--raw` skips rendering; `--preview` shows the rendering, saves nothing.
+- `npx -y slack-axi edit <channel> <ts> "<new markdown>"` or `edit <sent-draft-id> "<new markdown>"` — prepare an
   edit of a message **this token posted**; the draft shows old → new. `draft send <id>` applies it.
 - `npx -y slack-axi delete <channel> <ts>` or `delete <sent-draft-id>` — prepare deletion of a message
   this token posted; `draft send <id>` applies it.
