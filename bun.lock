@@ -7,7 +7,7 @@
       "dependencies": {
         "@slack/web-api": "^7.16.0",
         "@toon-format/toon": "^2.3.0",
-        "@tryfabric/mack": "github:JarvusInnovations/mack",
+        "@tryfabric/mack": "https://codeload.github.com/JarvusInnovations/mack/tar.gz/d0a9d6c0af20ff3e71b9d953bf76589626a94cfb",
         "axi-sdk-js": "^0.1.7",
         "slackify-markdown": "^5.0.0",
       },
@@ -151,7 +151,7 @@
 
     "@toon-format/toon": ["@toon-format/toon@2.3.0", "", {}, "sha512-/Ew9etdRQKVMnm9fDaCG0JjyAOK/O7T0M97oum1aW4W+UR8ZhVVPBanIV7oWgHBiGlnVxV9M55PWQCHofDV07w=="],
 
-    "@tryfabric/mack": ["@tryfabric/mack@github:JarvusInnovations/mack#d0a9d6c", { "dependencies": { "@slack/types": "^2.20.0", "fast-xml-parser": "^4.0.6", "he": "^1.2.0", "marked": "^4.0.12" } }, "JarvusInnovations-mack-d0a9d6c", "sha512-fCo/p/Aw3WsstmwDn1CzhdSORYgHZQbn2vnAJvSS6l2gA0OvuZJtS5AhGBPIbqL+BgqEYfre4lu9VNt5YJxQSA=="],
+    "@tryfabric/mack": ["@tryfabric/mack@https://codeload.github.com/JarvusInnovations/mack/tar.gz/d0a9d6c0af20ff3e71b9d953bf76589626a94cfb", { "dependencies": { "@slack/types": "^2.20.0", "fast-xml-parser": "^4.0.6", "he": "^1.2.0", "marked": "^4.0.12" } }, "sha512-6uAI19E94I95eUsEu+ZXioB8wYOnPmQ/yU/Tls7XjT7oHdYqWyHo4hp4Z4dCBOSZRsO++iZsACUyCpKHdJ6gwg=="],
 
     "@tybys/wasm-util": ["@tybys/wasm-util@0.10.2", "", { "dependencies": { "tslib": "^2.4.0" } }, "sha512-RoBvJ2X0wuKlWFIjrwffGw1IqZHKQqzIchKaadZZfnNpsAYp2mM0h36JtPCjNDAHGgYez/15uMBpfGwchhiMgg=="],
 
