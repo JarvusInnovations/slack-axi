@@ -56,8 +56,40 @@ export function joinBlocks(...blocks: Array<string | undefined>): string {
   return blocks.filter((b): b is string => Boolean(b && b.length > 0)).join("\n");
 }
 
-/** Truncate free text to `max` chars, noting the original length. */
+/** The marker `truncate` appends; callers use `wasTruncated` to detect it on a rendered cell. */
+export const TRUNCATION_MARK = "… (truncated, ";
+
+const URL_RE = /https?:\/\/[^\s<>|)\]"']+/g;
+
+/**
+ * Truncate free text to ~`max` chars, noting the original length. A URL is atomic: if the cut would
+ * land inside one, the preview extends to that URL's end — a URL prefix can't be followed and looks
+ * like data, so it's worse than the whole URL. See specs/behaviors/output-format.md + links.md.
+ */
 export function truncate(text: string, max = 500): string {
   if (text.length <= max) return text;
-  return `${text.slice(0, max - 1)}… (truncated, ${text.length} chars total)`;
+  let cut = max - 1;
+  for (const m of text.matchAll(URL_RE)) {
+    const start = m.index ?? 0;
+    const end = start + m[0].length;
+    if (start < cut && cut < end) {
+      cut = end;
+      break;
+    }
+  }
+  if (cut >= text.length) return text;
+  return `${text.slice(0, cut)}${TRUNCATION_MARK}${text.length} chars total)`;
 }
+
+/** Whether a rendered cell carries the truncation marker (i.e. `truncate` actually cut it). */
+export function wasTruncated(rendered: unknown): boolean {
+  return typeof rendered === "string" && rendered.includes(TRUNCATION_MARK);
+}
+
+/** Whether any row's `text` was truncated — drives the `--full` hint in `help[]`. */
+export function anyTruncated(rows: Array<Record<string, unknown>>): boolean {
+  return rows.some((r) => wasTruncated(r.text));
+}
+
+/** The `help[]` line that names the escape hatch, shown only when truncation actually occurred. */
+export const FULL_HINT = "Some message text was truncated; re-run with `--full` for complete text";

@@ -1,10 +1,19 @@
 import { AxiError } from "axi-sdk-js";
 import { takeBool, takeFlag } from "../flags.js";
-import { encodeObject, joinBlocks, renderHelp, renderList, truncate } from "../output.js";
+import {
+  anyTruncated,
+  encodeObject,
+  FULL_HINT,
+  joinBlocks,
+  renderHelp,
+  renderList,
+  truncate,
+} from "../output.js";
 import { activeSession, type Session } from "../session.js";
 import { allCachedUsers, ensureUsersByIds, type UserMeta } from "../slack/cache.js";
 import { summarizeFiles } from "../slack/files.js";
 import { formatText, mentionedUserIds, userName } from "../slack/format.js";
+import { summarizeLinks } from "../slack/links.js";
 import { getPermalink } from "../slack/permalink.js";
 import { summarizeReactions } from "../slack/reactions.js";
 import { channelLabel, resolveChannel } from "../slack/resolve.js";
@@ -21,7 +30,7 @@ import { dottedTs, handle } from "../slack/ts.js";
 
 export const READ_HELP = `usage: slack-axi read <channel> [flags]
 Reads a channel over a time window, threads inlined, paginated to completion.
-flags[8]:
+flags[9]:
   --since <span>   Relative window ending now: 7d, 24h, 90m (default: 7d)
   --from <when>    Window start: date (2026-04-23), datetime (2026-04-23T14:00), or span
   --to <when>      Window end (default: now)
@@ -126,6 +135,7 @@ export async function readCommand(args: string[]): Promise<string> {
   const allRows = [...groups.values()].flat();
   const anyReactions = fillUniformColumn(allRows, "reactions");
   const anyFiles = fillUniformColumn(allRows, "files");
+  fillUniformColumn(allRows, "links");
 
   const blocks: string[] = [encodeObject(header)];
   for (const [date, rows] of groups)
@@ -142,6 +152,7 @@ export async function readCommand(args: string[]): Promise<string> {
     !complete
       ? `Showing the most recent ${f.limit} of ${total}; raise \`--limit <n>\` or narrow the window`
       : undefined,
+    !f.full && anyTruncated(allRows) ? FULL_HINT : undefined,
     !f.cite
       ? `Run \`slack-axi cite ${channel.id} <ts...>\` for permalinks to messages you cite`
       : undefined,
@@ -180,17 +191,20 @@ export async function threadCommand(args: string[]): Promise<string> {
       };
       if (m.reactions && m.reactions.length > 0) row.reactions = summarizeReactions(m.reactions);
       if (m.files && m.files.length > 0) row.files = summarizeFiles(m.files);
+      if (m.links && m.links.length > 0) row.links = summarizeLinks(m.links);
       return row;
     }),
   );
   const anyReactions = fillUniformColumn(rows, "reactions");
   const anyFiles = fillUniformColumn(rows, "files");
+  fillUniformColumn(rows, "links");
 
   const help = [
     anyReactions ? `Run \`slack-axi reactions ${channel.id} <ts>\` to see who reacted` : undefined,
     anyFiles
       ? "Run `slack-axi download <file-id...>` to fetch attachments (the [F…] ids above)"
       : undefined,
+    !full.present && anyTruncated(rows) ? FULL_HINT : undefined,
   ].filter((l): l is string => Boolean(l));
 
   return joinBlocks(
@@ -275,6 +289,7 @@ async function buildRow(
   if (f.cite) row.permalink = await getPermalink(session, channelId, msg.ts);
   if (msg.reactions && msg.reactions.length > 0) row.reactions = summarizeReactions(msg.reactions);
   if (msg.files && msg.files.length > 0) row.files = summarizeFiles(msg.files);
+  if (msg.links && msg.links.length > 0) row.links = summarizeLinks(msg.links);
   return row;
 }
 
@@ -282,7 +297,7 @@ async function buildRow(
  * Make an inline column uniform (auto-when-present): if any row carries a non-empty string under
  * `key`, ensure every row has the key (empty string when it had none) so the TOON table stays compact;
  * otherwise drop the key entirely so the column vanishes. Returns whether the column was applied. Used
- * for the `reactions` and `files` columns. See specs/behaviors/reactions.md + files.md.
+ * for the `reactions`, `files`, and `links` columns. See specs/behaviors/reactions.md + files.md + links.md.
  */
 function fillUniformColumn(rows: Array<Record<string, unknown>>, key: string): boolean {
   const any = rows.some((r) => typeof r[key] === "string" && (r[key] as string).length > 0);

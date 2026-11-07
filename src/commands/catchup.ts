@@ -1,6 +1,14 @@
 import { AxiError } from "axi-sdk-js";
 import { takeBool, takeFlag } from "../flags.js";
-import { encodeObject, joinBlocks, renderHelp, renderList, truncate } from "../output.js";
+import {
+  anyTruncated,
+  encodeObject,
+  FULL_HINT,
+  joinBlocks,
+  renderHelp,
+  renderList,
+  truncate,
+} from "../output.js";
 import { activeSession, type Session } from "../session.js";
 import {
   allCachedUsers,
@@ -28,7 +36,7 @@ import { handle } from "../slack/ts.js";
 export const CATCHUP_HELP = `usage: slack-axi catchup [flags]
 Sweeps a SCOPED set of channels over a time window and returns everything posted — a multi-channel read.
 Slack has no cross-conversation history endpoint, so this fans out per channel; scope keeps it bounded.
-flags[10]:
+flags[11]:
   --since <span>      Window ending now: 1d, 12h, 90m (default: 1d)
   --from <when>       Window start (date / datetime / span); --to end (default now)
   --tz <zone>         Timezone (default America/New_York)
@@ -40,6 +48,7 @@ flags[10]:
   --max-channels <n>  Refuse to sweep more than this many (default 40)
   --exclude-bots      Drop bot/automation messages
   --cite              Add a permalink column
+  --full              Don't truncate message text
 Threads are not inlined here (kept cheap across many channels); a [+N replies] note marks threads —
 expand one with \`read <channel>\` or \`thread <channel> <ts>\`.
 examples:
@@ -66,6 +75,7 @@ export async function catchupCommand(args: string[]): Promise<string> {
   const maxCh = takeFlag(limitPer.rest, "--max-channels");
   const excludeBots = takeBool(maxCh.rest, "--exclude-bots");
   const cite = takeBool(excludeBots.rest, "--cite");
+  const full = takeBool(cite.rest, "--full");
 
   const perCap = posInt(limitPer.value, DEFAULT_LIMIT_PER);
   const maxChannels = posInt(maxCh.value, DEFAULT_MAX_CHANNELS);
@@ -161,7 +171,9 @@ export async function catchupCommand(args: string[]): Promise<string> {
   for (const s of swept) {
     const rows: Array<Record<string, unknown>> = [];
     for (const m of s.shown)
-      rows.push(await buildRow(session, s.channel.id, m, users, window.tz, cite.present));
+      rows.push(
+        await buildRow(session, s.channel.id, m, users, window.tz, cite.present, full.present),
+      );
     active.push({
       channel: s.channel,
       label: await channelLabel(session, s.channel),
@@ -191,6 +203,7 @@ export async function catchupCommand(args: string[]): Promise<string> {
     active.length > 0
       ? "Use `slack-axi read <channel> --from --to` or `thread <channel> <ts>` to expand"
       : "Nothing posted in this window across the scoped channels",
+    !full.present && anyTruncated(active.flatMap((a) => a.rows)) ? FULL_HINT : undefined,
     !cite.present
       ? "Add `--cite`, or `slack-axi cite <channel> <ts...>`, for permalinks"
       : undefined,
@@ -229,16 +242,20 @@ async function buildRow(
   users: Record<string, UserMeta>,
   tz: string,
   cite: boolean,
+  full: boolean,
 ): Promise<Record<string, unknown>> {
   const author = msg.user ? userName(msg.user, users) : msg.botId ? "(bot)" : "(system)";
   const replyNote =
     msg.replyCount > 0 ? ` [+${msg.replyCount} repl${msg.replyCount === 1 ? "y" : "ies"}]` : "";
   const fileCount = msg.files?.length ?? 0;
   const fileNote = fileCount > 0 ? ` [+${fileCount} file${fileCount === 1 ? "" : "s"}]` : "";
+  const linkCount = msg.links?.length ?? 0;
+  const linkNote = linkCount > 0 ? ` [+${linkCount} link${linkCount === 1 ? "" : "s"}]` : "";
+  const text = formatText(msg.text, users);
   const row: Record<string, unknown> = {
     time: formatDateTime(tsToEpochMs(msg.ts), tz),
     author,
-    text: truncate(formatText(msg.text, users)) + replyNote + fileNote,
+    text: (full ? text : truncate(text)) + replyNote + fileNote + linkNote,
     ts: handle(msg.ts),
   };
   if (cite) row.permalink = await getPermalink(session, channelId, msg.ts);
