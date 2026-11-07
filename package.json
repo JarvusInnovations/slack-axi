@@ -30,13 +30,15 @@
     "prepublishOnly": "bun run build"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "license": "MIT",
   "dependencies": {
     "@slack/web-api": "^7.16.0",
     "@toon-format/toon": "^2.3.0",
-    "axi-sdk-js": "^0.1.7"
+    "@tryfabric/mack": "github:JarvusInnovations/mack",
+    "axi-sdk-js": "^0.1.7",
+    "slackify-markdown": "^5.0.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

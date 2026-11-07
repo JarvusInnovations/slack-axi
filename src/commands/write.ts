@@ -1,19 +1,29 @@
 import { randomUUID } from "node:crypto";
+import type { KnownBlock } from "@slack/web-api";
 import { AxiError } from "axi-sdk-js";
 import {
   type Draft,
   getDraft,
   getStoredToken,
   listDrafts,
+  type Mode,
   removeDraft,
   writeDraft,
 } from "../config.js";
-import { takeFlag } from "../flags.js";
+import { takeBool, takeFlag } from "../flags.js";
 import { encodeObject, joinBlocks, renderHelp, renderList, truncate } from "../output.js";
-import { activeSession, ensureIdentity, type Identity, type Session } from "../session.js";
+import {
+  activeSession,
+  ensureIdentity,
+  type Identity,
+  resolveMode,
+  type Session,
+} from "../session.js";
+import { blocksText, renderBlocks, summarizeBlocks } from "../slack/blocks.js";
 import { allCachedUsers, ensureUsersByIds } from "../slack/cache.js";
 import { toAxiError } from "../slack/errors.js";
 import { formatText, userName } from "../slack/format.js";
+import { renderMrkdwn } from "../slack/mrkdwn.js";
 import { getPermalink } from "../slack/permalink.js";
 import { channelLabel, resolveChannel } from "../slack/resolve.js";
 import { fetchMessage, type Msg } from "../slack/threads.js";
@@ -25,25 +35,33 @@ examples:
   slack-axi react #eng 1717589640123456 :eyes:
   slack-axi react C0123ABCD 1717589640.123456 tada`;
 
-export const DRAFT_HELP = `usage: slack-axi draft <channel> "<text>" [--reply <ts>]
+export const DRAFT_HELP = `usage: slack-axi draft <channel> "<markdown>" [--reply <ts>] [--raw] [--preview]
        slack-axi draft send <draft-id>
        slack-axi draft list
        slack-axi draft discard <draft-id>
 Prepares a message for approval — \`draft\` does NOT send. Review it, then \`draft send <id>\` posts it.
+Write MARKDOWN: it is rendered to Slack's dialect for the workspace mode (human → mrkdwn text,
+bot → Block Kit; see \`auth mode\`). Hand-written mrkdwn tokens (<@U…>, <url|label>, • bullets) pass
+through untouched; \`*x*\` means italic — write \`**x**\` for bold.
 \`draft send\` is also how an \`edit\` or \`delete\` draft is applied (one approval step for every write).
+flags[3]:
+  --reply <ts>   Post as a thread reply
+  --raw          Skip rendering; send the text verbatim (for callers that already write mrkdwn)
+  --preview      Print the rendering and write nothing
 examples:
-  slack-axi draft #eng "Deploy is green ✅"
+  slack-axi draft #eng "Deploy is **green** ✅ — see [runbook](https://r.un/book)"
   slack-axi draft #eng --reply 1717589640123456 "confirmed"
-  slack-axi draft send d_1a2b3c4d
-  slack-axi draft list`;
+  slack-axi draft #eng --preview "## Status\\n- api ok\\n- web ok"
+  slack-axi draft send d_1a2b3c4d`;
 
-export const EDIT_HELP = `usage: slack-axi edit <channel> <ts> "<new text>"
-       slack-axi edit <sent-draft-id> "<new text>"
+export const EDIT_HELP = `usage: slack-axi edit <channel> <ts> "<new markdown>" [--raw] [--preview]
+       slack-axi edit <sent-draft-id> "<new markdown>"
 Prepares an edit of one of THIS TOKEN'S OWN messages (checked before the draft is written) — nothing
 changes in Slack until \`draft send <id>\`. The draft shows old → new for review. Target a message by
-channel + ts handle, or by the id of a draft this tool already sent.
+channel + ts handle, or by the id of a draft this tool already sent. The new text is Markdown and is
+rendered exactly as \`draft\` renders it (\`--raw\` to skip, \`--preview\` to see it without saving).
 examples:
-  slack-axi edit #eng 1717589640123456 "Deploy is green ✅ (all regions)"
+  slack-axi edit #eng 1717589640123456 "Deploy is **green** ✅ (all regions)"
   slack-axi edit d_1a2b3c4d "corrected wording"
   slack-axi draft send d_9f8e7d6c`;
 
@@ -89,6 +107,40 @@ export function draftStatus(draft: Pick<Draft, "kind" | "sent" | "reply_to">): s
   if (draft.sent) return kind === "post" ? "sent" : `${kind} applied`;
   if (kind === "post") return draft.reply_to ? "reply (pending)" : "pending";
   return `${kind} (pending)`;
+}
+
+// ---------------------------------------------------------------------------- outgoing rendering
+
+/** What a draft will send: `text` always; `blocks` (one chunk per message) in bot mode. */
+export interface Outgoing {
+  text: string;
+  blocks?: KnownBlock[][];
+}
+
+/**
+ * Render Markdown for the mode — mrkdwn text (human), chunked Block Kit with a text fallback (bot) —
+ * or pass it through verbatim with `raw`. Pure given the mode. See specs/behaviors/mrkdwn.md.
+ */
+export async function renderOutgoing(
+  mode: Mode,
+  markdown: string,
+  raw: boolean,
+): Promise<Outgoing> {
+  if (raw) return { text: markdown };
+  if (mode === "bot") {
+    const r = await renderBlocks(markdown);
+    return { text: r.fallbackText, blocks: r.chunks };
+  }
+  return { text: renderMrkdwn(markdown) };
+}
+
+/** The fields that show a reviewer what will be sent (draft echo + --preview). */
+export function describeOutgoing(mode: Mode, out: Outgoing, raw: boolean): Record<string, unknown> {
+  if (raw) return { mode, raw: true, text: out.text };
+  if (out.blocks) {
+    return { mode, ...summarizeBlocks(out.blocks), text_fallback: truncate(out.text, 200) };
+  }
+  return { mode, text: out.text };
 }
 
 const DRAFT_ID_RE = /^d_[0-9a-f]{8}$/;
@@ -137,8 +189,36 @@ export async function editCommand(args: string[]): Promise<string> {
   if (args.includes("--help")) return EDIT_HELP;
   const usage =
     'usage: slack-axi edit <channel> <ts> "<new text>"  |  edit <sent-draft-id> "<new text>"';
-  const { target, text } = await resolveTarget(args, usage, true);
-  if (!text) throw new AxiError(usage, "USAGE", ["Pass the replacement text as the last argument"]);
+  const raw = takeBool(args, "--raw");
+  const preview = takeBool(raw.rest, "--preview");
+  const { target, text: markdown } = await resolveTarget(preview.rest, usage, true);
+  if (!markdown) {
+    throw new AxiError(usage, "USAGE", ["Pass the replacement text as the last argument"]);
+  }
+
+  const mode = await resolveMode(target.session);
+  const out = await renderOutgoing(mode, markdown, raw.present);
+  if (out.blocks && out.blocks.length > 1) {
+    throw new AxiError(
+      `The new text renders to ${out.blocks.length} messages' worth of blocks; an edit can replace only one`,
+      "TOO_LONG_FOR_EDIT",
+      [
+        'Shorten the text, or post the rest as a thread reply with `slack-axi draft <channel> --reply <ts> "..."`',
+      ],
+    );
+  }
+  const shown = describeOutgoing(mode, out, raw.present);
+
+  if (preview.present) {
+    return encodeObject({
+      preview: "nothing saved",
+      kind: "edit",
+      channel: `${target.label} (${target.channelId})`,
+      target: handle(target.ts),
+      old: target.previousRendered,
+      ...renameText(shown, "new"),
+    });
+  }
 
   const draft: Draft = {
     id: newDraftId(),
@@ -148,7 +228,10 @@ export async function editCommand(args: string[]): Promise<string> {
     kind: "edit",
     target_ts: target.ts,
     previous_text: target.message.text,
-    text,
+    markdown,
+    text: out.text,
+    ...(out.blocks ? { blocks: out.blocks } : {}),
+    ...(raw.present ? { raw: true } : {}),
     created_at: new Date().toISOString(),
   };
   writeDraft(draft);
@@ -161,7 +244,7 @@ export async function editCommand(args: string[]): Promise<string> {
       channel: `${target.label} (${target.channelId})`,
       target: handle(target.ts),
       old: target.previousRendered,
-      new: text,
+      ...renameText(shown, "new"),
     }),
     renderHelp([
       `Review it, then apply with \`slack-axi draft send ${draft.id}\` (or discard with \`draft discard ${draft.id}\`)`,
@@ -181,6 +264,7 @@ export async function deleteCommand(args: string[]): Promise<string> {
     channel: target.label,
     kind: "delete",
     target_ts: target.ts,
+    ...(target.chunks ? { target_chunks: target.chunks } : {}),
     previous_text: target.message.text,
     text: "",
     created_at: new Date().toISOString(),
@@ -194,12 +278,20 @@ export async function deleteCommand(args: string[]): Promise<string> {
       workspace: workspaceLabel(target.session),
       channel: `${target.label} (${target.channelId})`,
       target: handle(target.ts),
+      ...(target.chunks ? { also_removes: target.chunks.slice(1).map(handle).join(", ") } : {}),
       old: target.previousRendered,
     }),
     renderHelp([
       `Review it, then apply with \`slack-axi draft send ${draft.id}\` (or discard with \`draft discard ${draft.id}\`)`,
     ]),
   );
+}
+
+/** In an edit echo the rendering is the `new` text, not `text`. */
+function renameText(shown: Record<string, unknown>, to: string): Record<string, unknown> {
+  if (!("text" in shown)) return shown;
+  const { text, ...rest } = shown;
+  return { ...rest, [to]: text };
 }
 
 // ---------------------------------------------------------------------------- edit/delete target
@@ -212,6 +304,8 @@ interface Target {
   message: Msg;
   /** The target's current text with Slack markup resolved, for the old → new review. */
   previousRendered: string;
+  /** For a multi-chunk post targeted by draft id: every chunk ts (delete removes them all). */
+  chunks?: string[];
 }
 
 /**
@@ -232,6 +326,7 @@ async function resolveTarget(
   let channelId: string;
   let ts: string;
   let textParts: string[];
+  let chunks: string[] | undefined;
 
   if (DRAFT_ID_RE.test(positional[0])) {
     const prior = getDraft(positional[0]);
@@ -251,6 +346,18 @@ async function resolveTarget(
     }
     textParts = positional.slice(1);
     if (takesText && textParts.length === 0) throw new AxiError(usage, "USAGE", []);
+    const chunkCount = prior.sent.chunks?.length ?? 1;
+    if (takesText && chunkCount > 1) {
+      throw new AxiError(
+        `Draft ${positional[0]} was posted as ${chunkCount} messages; an edit can replace only one`,
+        "MULTI_CHUNK_POST",
+        [
+          `Delete and re-post: \`slack-axi delete ${positional[0]}\`, then a new \`draft\``,
+          "Or edit one message by <channel> <ts> (see all_ts in the send confirmation)",
+        ],
+      );
+    }
+    chunks = chunkCount > 1 ? prior.sent.chunks : undefined;
     session = await activeSession({ teamFlag: team.value ?? prior.team });
     channelId = prior.channel_id;
     ts = prior.sent.ts;
@@ -307,6 +414,7 @@ async function resolveTarget(
       ts,
       message,
       previousRendered: formatText(message.text, users),
+      ...(chunks ? { chunks } : {}),
     },
     text: textParts.join(" ").trim(),
   };
@@ -325,17 +433,35 @@ function workspaceLabel(session: Session): string {
 async function draftCreate(args: string[]): Promise<string> {
   const team = takeFlag(args, "--team");
   const reply = takeFlag(team.rest, "--reply");
-  const positional = reply.rest.filter((a) => !a.startsWith("-"));
+  const raw = takeBool(reply.rest, "--raw");
+  const preview = takeBool(raw.rest, "--preview");
+  const positional = preview.rest.filter((a) => !a.startsWith("-"));
   const channelArg = positional[0];
-  const text = positional.slice(1).join(" ");
-  if (!channelArg || !text) {
-    throw new AxiError('usage: slack-axi draft <channel> "<text>" [--reply <ts>]', "USAGE", []);
+  const markdown = positional.slice(1).join(" ");
+  if (!channelArg || !markdown) {
+    throw new AxiError(
+      'usage: slack-axi draft <channel> "<markdown>" [--reply <ts>] [--raw] [--preview]',
+      "USAGE",
+      [],
+    );
   }
 
   // Creating a draft is local-only (no Slack write), but we resolve the channel to validate + label it.
   const session = await activeSession({ teamFlag: team.value });
   const channel = await resolveChannel(session, channelArg);
   const label = await channelLabel(session, channel);
+  const mode = await resolveMode(session);
+  const out = await renderOutgoing(mode, markdown, raw.present);
+  const shown = describeOutgoing(mode, out, raw.present);
+
+  if (preview.present) {
+    return encodeObject({
+      preview: "nothing saved",
+      channel: `${label} (${channel.id})`,
+      ...(reply.value ? { reply_to: handle(dottedTs(reply.value)) } : {}),
+      ...shown,
+    });
+  }
 
   const draft: Draft = {
     id: newDraftId(),
@@ -343,7 +469,10 @@ async function draftCreate(args: string[]): Promise<string> {
     channel_id: channel.id,
     channel: label,
     ...(reply.value ? { reply_to: dottedTs(reply.value) } : {}),
-    text,
+    markdown,
+    text: out.text,
+    ...(out.blocks ? { blocks: out.blocks } : {}),
+    ...(raw.present ? { raw: true } : {}),
     created_at: new Date().toISOString(),
   };
   writeDraft(draft);
@@ -354,7 +483,7 @@ async function draftCreate(args: string[]): Promise<string> {
       workspace: workspaceLabel(session),
       channel: `${label} (${channel.id})`,
       ...(draft.reply_to ? { reply_to: handle(draft.reply_to) } : {}),
-      text: draft.text,
+      ...shown,
     }),
     renderHelp([
       `Review it, then post with \`slack-axi draft send ${draft.id}\` (or discard with \`draft discard ${draft.id}\`)`,
@@ -392,11 +521,18 @@ async function draftSend(args: string[]): Promise<string> {
   // Act on the draft's own workspace (explicit team satisfies write-protection).
   const session = await activeSession({ teamFlag: draft.team, mutation: true });
   const channel = `${draft.channel} (${draft.channel_id})`;
+  const blocks = draft.blocks as KnownBlock[][] | undefined;
 
   if (kind === "edit") {
     const ts = draft.target_ts ?? "";
     try {
-      await session.client.chat.update({ channel: draft.channel_id, ts, text: draft.text });
+      // Blocks are replaced wholesale: the rendering's single chunk, or none (clears any prior blocks).
+      await session.client.chat.update({
+        channel: draft.channel_id,
+        ts,
+        text: draft.text,
+        blocks: blocks?.[0] ?? [],
+      });
     } catch (err) {
       throw toAxiError(err, { team: draft.team, channel: draft.channel });
     }
@@ -409,19 +545,24 @@ async function draftSend(args: string[]): Promise<string> {
       channel,
       ts: handle(ts),
       permalink,
-      text: firstLine(draft.text),
+      text: firstLine(draft.markdown ?? draft.text),
     });
   }
 
   if (kind === "delete") {
     const ts = draft.target_ts ?? "";
-    let alreadyGone = false;
-    try {
-      await session.client.chat.delete({ channel: draft.channel_id, ts });
-    } catch (err) {
-      const code = (err as { data?: { error?: string } })?.data?.error;
-      if (code === "message_not_found") alreadyGone = true;
-      else throw toAxiError(err, { team: draft.team, channel: draft.channel });
+    // A multi-chunk post targeted by draft id removes every chunk; a missing one is already gone.
+    const targets =
+      draft.target_chunks && draft.target_chunks.length > 0 ? draft.target_chunks : [ts];
+    let gone = 0;
+    for (const t of targets) {
+      try {
+        await session.client.chat.delete({ channel: draft.channel_id, ts: t });
+      } catch (err) {
+        const code = (err as { data?: { error?: string } })?.data?.error;
+        if (code === "message_not_found") gone++;
+        else throw toAxiError(err, { team: draft.team, channel: draft.channel });
+      }
     }
     draft.sent = { ts, permalink: "", at: new Date().toISOString() };
     writeDraft(draft);
@@ -430,27 +571,69 @@ async function draftSend(args: string[]): Promise<string> {
       kind,
       channel,
       ts: handle(ts),
-      deleted: alreadyGone ? "already gone (no-op)" : true,
+      deleted:
+        gone === targets.length
+          ? "already gone (no-op)"
+          : targets.length > 1
+            ? ` message(s)`
+            : true,
     });
   }
 
-  let posted;
-  try {
-    posted = await session.client.chat.postMessage({
+  // Post: one message, or one per block chunk in bot mode (first carries the text fallback).
+  const chunks: Array<KnownBlock[] | undefined> =
+    blocks && blocks.length > 0 ? blocks : [undefined];
+  const posted: string[] = [];
+  for (let i = 0; i < chunks.length; i++) {
+    const chunk = chunks[i];
+    const base = {
       channel: draft.channel_id,
-      text: draft.text,
       ...(draft.reply_to ? { thread_ts: draft.reply_to } : {}),
-    });
-  } catch (err) {
-    throw toAxiError(err, { team: draft.team, channel: draft.channel });
+    };
+    try {
+      const res = chunk
+        ? await session.client.chat.postMessage({
+            ...base,
+            blocks: chunk,
+            text: i === 0 ? draft.text : "(continued)",
+          })
+        : await session.client.chat.postMessage({ ...base, text: draft.text });
+      posted.push(String(res.ts ?? ""));
+    } catch (err) {
+      const code = (err as { data?: { error?: string } })?.data?.error;
+      if (chunk && code === "invalid_blocks") {
+        // Slack rejected the blocks: fall back to the blocks' text for this chunk, as claude-assist does.
+        const res = await session.client.chat
+          .postMessage({ ...base, text: blocksText(chunk) || draft.text })
+          .catch((e) => {
+            throw toAxiError(e, { team: draft.team, channel: draft.channel });
+          });
+        posted.push(String(res.ts ?? ""));
+      } else {
+        throw toAxiError(err, { team: draft.team, channel: draft.channel });
+      }
+    }
   }
 
-  const ts = String(posted.ts ?? "");
+  const ts = posted[0] ?? "";
   const permalink = ts ? await getPermalink(session, draft.channel_id, ts) : "";
-  draft.sent = { ts, permalink, at: new Date().toISOString() };
+  draft.sent = {
+    ts,
+    permalink,
+    at: new Date().toISOString(),
+    ...(posted.length > 1 ? { chunks: posted } : {}),
+  };
   writeDraft(draft);
 
-  return encodeObject({ sent: id, channel, ts: handle(ts), permalink });
+  return encodeObject({
+    sent: id,
+    channel,
+    ts: handle(ts),
+    permalink,
+    ...(posted.length > 1
+      ? { messages: posted.length, all_ts: posted.map((t) => handle(t)).join(", ") }
+      : {}),
+  });
 }
 
 function draftList(): string {
@@ -465,7 +648,10 @@ function draftList(): string {
     id: d.id,
     channel: d.channel,
     status: draftStatus(d),
-    text: truncate(draftKind(d) === "delete" ? (d.previous_text ?? "") : d.text, 80),
+    text: truncate(
+      draftKind(d) === "delete" ? (d.previous_text ?? "") : (d.markdown ?? d.text),
+      80,
+    ),
   }));
   return joinBlocks(
     renderList("drafts", rows),

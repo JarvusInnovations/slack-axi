@@ -1,5 +1,5 @@
 ---
-status: planned
+status: done
 depends: [14-edit-delete]
 specs:
   - specs/behaviors/mrkdwn.md
@@ -8,6 +8,7 @@ specs:
   - specs/behaviors/auth-and-workspaces.md
   - specs/architecture.md
 issues: [19]
+pr: 25
 ---
 
 # 15 — render Markdown on the way out: mrkdwn text (human mode) or Block Kit (bot mode)
@@ -70,20 +71,20 @@ GitHub's tarball endpoint; flagged for later).
 
 ## Validation
 
-- [ ] Human mode: the spec's before/after table renders exactly (unit-tested); `*bold*` written as
+- [x] Human mode: the spec's before/after table renders exactly (unit-tested); `*bold*` written as
       Markdown emphasis becomes `_bold_` and `**bold**` becomes `*bold*` (documented).
-- [ ] Hand-written mrkdwn passes through unchanged: `<@U…>`, `<#C…|name>`, `<!here>`, `<url|label>`,
+- [x] Hand-written mrkdwn passes through unchanged: `<@U…>`, `<#C…|name>`, `<!here>`, `<url|label>`,
       `<url>`, `•` lines, code spans/fences. (Unit-tested.)
-- [ ] `draft --preview` prints the rendering and writes no draft; `draft --raw` stores text verbatim.
-- [ ] A human-mode draft posted live renders bold/bullets/links correctly in Slack and remains editable
+- [x] `draft --preview` prints the rendering and writes no draft; `draft --raw` stores text verbatim.
+- [x] A human-mode draft posted live renders bold/bullets/links correctly in Slack and remains editable
       with formatting intact in the client. (Live, user token.)
 - [ ] Bot mode: a Markdown doc with a heading, list, table, and a 60-block body posts as ≥2 chunked
       messages with correct `text` fallbacks; `invalid_blocks` fallback path unit-tested with a fake
       client. (Blocks rendering unit-tested; live bot-token check if a bot token is available.)
-- [ ] `edit` renders through the same path (deferred from [`14-edit-delete`](14-edit-delete.md)); a
+- [x] `edit` renders through the same path (deferred from [`14-edit-delete`](14-edit-delete.md)); a
       bot-mode edit needing >1 chunk is refused with `TOO_LONG_FOR_EDIT`.
-- [ ] `auth mode` shows the derived mode and overrides it; `doctor`/home show the mode.
-- [ ] `bun run test`, `typecheck`, `lint`, `format:check` clean; `bun run build` clean.
+- [x] `auth mode` shows the derived mode and overrides it; `doctor`/home show the mode.
+- [x] `bun run test`, `typecheck`, `lint`, `format:check` clean; `bun run build` clean.
 
 ## Risks / unknowns
 
@@ -99,8 +100,30 @@ GitHub's tarball endpoint; flagged for later).
 
 ## Notes
 
-(At closeout.)
+- **Bot-mode validation item left unchecked on purpose.** Chunked posting (header+table+list → 2
+  messages, `header, section, table` | `rich_text, section`) and a bot-mode edit were verified **live**
+  with `SLACK_AXI_MODE=bot` on a user token — the API accepts blocks from either token type — but no
+  `xoxb` token was at hand, and the `invalid_blocks` fallback is not unit-tested because `draftSend`
+  builds its own session (Issue #26).
+- **Both libraries escape Slack markup.** `slackify-markdown` and `mack` turn `<…>` into `&lt;…&gt;`
+  and re-link `<url|label>` as `<url%7Clabel|…>`; the placeholder pass (`protectSlackTokens`) is what
+  keeps hand-written mrkdwn alive through both. `<notatoken>`-style HTML-looking text is passed through
+  by remark as inline HTML, which is fine for Slack.
+- **`chat.update` keeps prior blocks unless told otherwise**, so human-mode edits send `blocks: []`
+  explicitly; Slack accepted the empty array live.
+- **A native table forces a chunk split** (mack emits a `table` block; the claude-assist rule flushes
+  after it), so a short doc with one table becomes two messages. Expected; documented in the echo via
+  `blocks: N in M chunk(s)` so the reviewer sees it before sending.
+- **Mode is derived, not stored, unless overridden**: `token.json.mode` only exists after `auth mode
+  human|bot`; `auth mode auto` deletes it. Pre-existing records need no migration.
+- `md-to-slack` was evaluated and rejected (collapsed nested lists, glued code fences, dropped tables/
+  images, escaped mentions); results are in PR #25.
+- Bun blocked mack's `prepare` lifecycle script on install; harmless because the fork commits `build/`.
 
 ## Follow-ups
 
-(At closeout.)
+- Issue [#26](https://github.com/JarvusInnovations/slack-axi/issues/26) — unit-test `draftSend` chunk
+  posting + `invalid_blocks` fallback with a fake client (needs session injection).
+- Tracked as: Chris to decide whether to publish the mack fork to npm (replacing the `github:` dep).
+- Tracked as: Hari's opsbots switch their writing spec from hand-written mrkdwn to Markdown once this
+  is on npm (until then `*bold*` renders italic for them unless they pass `--raw`).
