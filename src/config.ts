@@ -29,9 +29,15 @@ export function isMode(value: unknown): value is Mode {
   return value === "human" || value === "bot";
 }
 
+/** Whether a stored record is a bot token: by the recorded bot_id, or the `xoxb-` prefix for records
+ *  written before bot_id was captured (pre-1.3.0 logins). */
+export function isBotToken(stored: Pick<StoredToken, "bot_id" | "token">): boolean {
+  return Boolean(stored.bot_id) || stored.token.startsWith("xoxb-");
+}
+
 /** A workspace's effective mode: the explicit override, else derived from whether it's a bot token. */
-export function workspaceMode(stored: Pick<StoredToken, "mode" | "bot_id">): Mode {
-  return stored.mode ?? (stored.bot_id ? "bot" : "human");
+export function workspaceMode(stored: Pick<StoredToken, "mode" | "bot_id" | "token">): Mode {
+  return stored.mode ?? (isBotToken(stored) ? "bot" : "human");
 }
 
 /** Set (or clear, with undefined) a workspace's explicit mode override. */

@@ -57,7 +57,7 @@ and `slack/client.ts` (WebClient per team).
   reports the gaps, but reading public channels the bot is in and drafting/editing/deleting as the bot
   work. Writes act as this identity; see [write.md → The token's identity](../commands/write.md).
 - `token.json` also records the **mode** (`human` | `bot`) that governs outgoing rendering (see
-  [mrkdwn.md](mrkdwn.md)): derived at login (`bot_id` → `bot`), overridable per workspace with
+  [mrkdwn.md](mrkdwn.md)): derived from the record (`bot_id` or an `xoxb-` token → `bot`), overridable per workspace with
   `auth mode`, and for one run with `SLACK_AXI_MODE`. An env-supplied token derives its mode from
   `auth.test` when first needed. The home view and `doctor` show it.
 
