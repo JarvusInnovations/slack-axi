@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 depends: [11-file-attachments]
 specs:
   - specs/behaviors/output-format.md
@@ -8,6 +8,7 @@ specs:
   - specs/commands/catchup.md
   - specs/architecture.md
 issues: [18]
+pr: 21
 ---
 
 # 13 — truncation announces `--full`; URLs and link unfurls are never lost
@@ -57,16 +58,16 @@ follow-up to land once #17 merges); reading Block Kit `blocks[]` directly (Slack
 
 ## Validation
 
-- [ ] `truncate()` on text whose 500th char falls inside a URL returns the whole URL, then the marker.
-- [ ] `formatText("<https://x.y/a|label>")` → `label (https://x.y/a)`;
+- [x] `truncate()` on text whose 500th char falls inside a URL returns the whole URL, then the marker.
+- [x] `formatText("<https://x.y/a|label>")` → `label (https://x.y/a)`;
       `formatText("<https://x.y/a/b|x.y/a/b>")` → `https://x.y/a/b`.
-- [ ] A message with a gdoc unfurl shows a `links` column entry with the title and the complete URL in
+- [x] A message with a gdoc unfurl shows a `links` column entry with the title and the complete URL in
       `read` and `thread`; a view with no unfurls has no `links` column. (Live.)
-- [ ] `catchup` marks the same message `[+1 link]`. (Live.)
-- [ ] A `read` whose output truncated any text ends with the `--full` hint; with `--full` neither the
+- [x] `catchup` marks the same message `[+1 link]`. (Live.)
+- [x] A `read` whose output truncated any text ends with the `--full` hint; with `--full` neither the
       marker nor the hint appears; a short-message view shows no hint. (Live.)
-- [ ] `catchup --full` is accepted and un-truncates. (Live.)
-- [ ] `bun run test`, `typecheck`, `lint`, `format:check` all clean.
+- [x] `catchup --full` is accepted and un-truncates. (Live.)
+- [x] `bun run test`, `typecheck`, `lint`, `format:check` all clean.
 
 ## Risks / unknowns
 
@@ -78,8 +79,20 @@ follow-up to land once #17 merges); reading Block Kit `blocks[]` directly (Slack
 
 ## Notes
 
-(At closeout.)
+- **The gdoc elision in #18 was the `<url|label>` rendering, not truncation.** Slack labels a pasted
+  long URL with a shortened display form that puts the `…` *mid-label*
+  (`docs.google.com/document/d/1Cvq…/edit?usp=sharing`); `formatText` rendered only the label, so
+  even `--full` showed a prefix. `formatLink` now matches head+tail around the ellipsis and renders the
+  URL alone in that case; a genuinely different label keeps both (`label (url)`).
+- **Unfurl attachment shapes seen live** (probe over 60 recent `has:link` matches): Google Meet carries
+  `from_url`+`original_url`+`title_link`; GitHub carries `title`+`title_link` only; some entries are
+  `fallback`-only with no URL (dropped). The `title_link ?? from_url ?? original_url` chain covers them.
+- Google Docs links pasted by users often do **not** unfurl (no `attachments[]`) — the href is still
+  recovered from the text via `formatLink`, so the two mechanisms are complementary, not redundant.
+- `catchup --full` was added for symmetry even though catchup is "lean by design": opt-in, no cost when
+  absent, and the hint rule requires every truncating command to have an escape hatch.
 
 ## Follow-ups
 
-(At closeout.)
+- Issue [#22](https://github.com/JarvusInnovations/slack-axi/issues/22) — `search`: `links` column +
+  `--full` + hint, once #17 (external PR rewriting search flag parsing) merges.
