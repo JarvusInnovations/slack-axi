@@ -58,6 +58,8 @@ arguments accept `#name`, bare `name`, or an id (`C…`/`G…`/`D…`) interchan
 ## Search (find a thing — NOT a window sweep)
 
 - `npx -y slack-axi search "<query>"` — across the workspace.
+- The query is **optional** when a filter narrows the search: `search --in #eng --from alice --after
+  2026-05-01` sweeps by filter alone (no free-text term needed).
 - Modifiers: `--in <channel>`, `--from <@user>` (sender), `--with <@user>` (conversations including a
   person), `--after <date|span>`, `--before <date|span>`, `--limit <n>`, `--cite`.
 - To read a channel over a window completely, use `read --from --to`, not `search`.

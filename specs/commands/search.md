@@ -11,10 +11,21 @@ oldest→newest, declaring whether the sweep was exhaustive. Both honor *Never s
 ## Invocation
 
 ```
-slack-axi search "<query>" [--files] [--in <channel>] [--from <@user>] [--with <@user>] [--to <@user>]
-                           [--has <x>]… [--is <x>]… [--after <when>] [--before <when>]
-                           [--on <date>] [--during <month|year>] [--type <t>] [--limit N] [--cite]
+slack-axi search ["<query>"] [--files] [--in <channel>] [--from <@user>] [--with <@user>] [--to <@user>]
+                             [--has <x>]… [--is <x>]… [--after <when>] [--before <when>]
+                             [--on <date>] [--during <month|year>] [--type <t>] [--limit N] [--cite]
 ```
+
+The free-text `<query>` is **optional when at least one filter narrows the search**. A filters-only
+invocation — e.g. `search --in #eng --from alice --after 2026-05-01` — is a first-class use: it sweeps
+every message matching the filters, exactly as a query-bearing search does. This mirrors Slack's own
+search, where a bare modifier expression (`in:#eng from:@alice`) is a valid query.
+
+**A "narrowing filter"** is any flag that translates to a Slack search modifier: `--in`, `--from`,
+`--with`, `--to`, `--has`, `--is`, `--after`, `--before`, `--on`, `--during`. `--type` does **not**
+count — it is a post-filter with no Slack modifier (see below), so a `--type`-only invocation has no
+query to send. With neither a query nor a narrowing filter, the command errors `USAGE` explaining both
+ways to search; it never sends an empty query to Slack.
 
 ## Data Requirements
 
@@ -42,7 +53,9 @@ Friendly flags translate to Slack search modifiers:
 matches, classified by each match's cached channel type (the `C` prefix alone can't separate public
 from private). Reported honestly as a filter, never as query narrowing.
 
-A query already containing quotes passes through verbatim (Slack phrase match).
+A query already containing quotes passes through verbatim (Slack phrase match). When no free-text query
+is given, the sent query is the modifier expression alone (e.g. `in:#eng from:@alice`); the `query:`
+header echoes exactly what was sent, so a filters-only search is transparent about what it swept.
 
 ### Identity resolution
 
