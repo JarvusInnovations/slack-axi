@@ -44,9 +44,18 @@ and `slack/client.ts` (WebClient per team).
 
 ### Write-protection
 
-- When 2+ workspaces are stored, a **mutating** command (`react`, `draft send`) requires the workspace
-  to be explicit (`--team` or `SLACK_AXI_TEAM`); it will not silently fall back to the default. Reads
-  fall back to the default freely. Mirrors gws-axi's multi-account write-protection.
+- When 2+ workspaces are stored, a **mutating** command (`react`, `draft send` — whether the draft
+  posts, edits, or deletes) requires the workspace to be explicit (`--team` or `SLACK_AXI_TEAM`); it
+  will not silently fall back to the default. Reads fall back to the default freely. Mirrors gws-axi's
+  multi-account write-protection. Preparing a draft (`draft`/`edit`/`delete`) is local-only and is not
+  gated, but the draft records its workspace, so sending it is.
+
+### Identity
+
+- `token.json` records the identity `auth.test` reports: `user_id` (always) and `bot_id` (bot tokens).
+  A bot token (`xoxb-`) is accepted — the standard scope set is written for user tokens, so `doctor`
+  reports the gaps, but reading public channels the bot is in and drafting/editing/deleting as the bot
+  work. Writes act as this identity; see [write.md → The token's identity](../commands/write.md).
 
 ### No rotation/refresh machinery (v1)
 
