@@ -21,29 +21,37 @@ even where the token's scopes would technically allow it.
 Adds a reaction (`reactions.write`). Idempotent — already present → `no-op`, exit 0 (see
 [errors.md](../behaviors/errors.md)). Returns a confirmation object (no `help[]`).
 
-### `draft <channel> "<text>" [--reply <ts>]`
+### `draft <channel> "<text>" [--reply <ts>] [--raw] [--preview]`
 
 Creates a **draft** and returns it for approval. Does **not** send. `--reply <ts>` makes it a threaded
-draft. The draft is persisted with an id and echoed back in full (the exact text + target) so a human
-or the agent can verify before sending.
+draft. The text is **Markdown** and is rendered at preparation time into the workspace mode's Slack
+dialect — mrkdwn text in human mode, Block Kit in bot mode — per
+[mrkdwn.md](../behaviors/mrkdwn.md). `--raw` skips rendering (text sent verbatim); `--preview` prints
+the rendering and writes nothing. The draft is persisted with an id and echoed back in full (the
+rendering + target) so a human or the agent can verify exactly what will be sent.
 
 ```
-draft:
-  id: d_01H…
-  workspace: Acme (T01ABC)
-  channel: #eng (C0B)
-  reply_to: 1717589640.123456
-  text: "Confirmed — the refresh landed in 4.8."
+draft: d_01H…
+mode: human
+workspace: Acme (T01ABC)
+channel: #eng (C0B)
+reply_to: 1717589640123456
+text: "Confirmed — the refresh landed in *4.8*."
 help[1]:
-  Run `slack-axi draft send d_01H…` to post it
+  Review it, then post with `slack-axi draft send d_01H…` (or discard with `draft discard d_01H…`)
 ```
 
-### `edit <channel> <ts> "<text>"` / `edit <sent-draft-id> "<text>"`
+In bot mode the echo shows `blocks: 7 in 1 chunk(s)` with each chunk's block types and the `text`
+fallback instead of the rendered text.
+
+### `edit <channel> <ts> "<text>" [--raw] [--preview]` / `edit <sent-draft-id> "<text>"`
 
 Prepares an **edit** of one of the token's own messages, as a draft of kind `edit`. Does **not**
 change anything in Slack. The target is a channel + `ts` handle (dotless or dotted), or the id of a
 draft this tool already sent (its recorded channel + ts are the target — "fix what I just said"
-without hunting for the ts).
+without hunting for the ts). The new text is Markdown and is rendered exactly as `draft` renders
+(`--raw`/`--preview` behave the same); a bot-mode edit whose rendering needs more than one chunk is
+refused with `TOO_LONG_FOR_EDIT`.
 
 Before the draft is written, the target message is fetched and the ownership rule above is applied.
 A message by anyone else → error `NOT_MESSAGE_AUTHOR`, naming who did post it, exit 1. A ts that
@@ -78,17 +86,22 @@ Idempotent — an already-applied draft acknowledges the prior application, exit
 that is already gone is reported as a no-op, exit 0. Subject to multi-workspace write-protection (see
 [auth-and-workspaces.md](../behaviors/auth-and-workspaces.md)).
 
-`chat.update` replaces the message **text**; an edit's text goes through the same outgoing rendering
-as a new post (see [mrkdwn.md](../behaviors/mrkdwn.md) once it lands). Slack's `edit_window_closed`
-(workspace policy) surfaces as `EDIT_WINDOW_CLOSED`; `cant_update_message` / `cant_delete_message`
-surface as `NOT_MESSAGE_AUTHOR`.
+A post in bot mode may span several messages (one per chunk — see
+[mrkdwn.md](../behaviors/mrkdwn.md)); the confirmation lists every ts, and the draft records them all.
+Targeting such a post by its draft id: `delete` removes **every** chunk (the draft echo lists the
+additional ts under `also_removes`); `edit` is refused with `MULTI_CHUNK_POST`, since one `chat.update`
+can replace only one message — delete and re-post, or edit a single chunk by `<channel> <ts>`.
+`chat.update` replaces the message's `text` (and `blocks`) wholesale with the edit's rendering. Slack's
+`edit_window_closed` (workspace policy) surfaces as `EDIT_WINDOW_CLOSED`; `cant_update_message` /
+`cant_delete_message` surface as `NOT_MESSAGE_AUTHOR`.
 
 ### `draft list` / `draft discard <id>`
 
 List pending drafts; discard one. The list shows each draft's kind (`post`, `edit`, `delete`) and
 status. Drafts are stored locally as `~/.config/slack-axi/drafts/<id>.json` (each records its `team`,
 so `draft send` acts on the workspace the draft was created against, which also satisfies
-multi-workspace write-protection). A draft record carries `kind` (absent means `post`), and for
+multi-workspace write-protection). A draft record carries `kind` (absent means `post`), the Markdown
+`markdown` source and its rendering (`text`, plus `blocks` in bot mode, or `raw: true`), and for
 `edit`/`delete` the `target_ts` and the `previous_text` captured at preparation time. `draft send`
 marks the draft `sent` (with the affected ts + permalink) rather than deleting it, so re-sending is an
 idempotent no-op.

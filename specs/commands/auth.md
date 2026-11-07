@@ -40,14 +40,26 @@ there is no team id until login). See [architecture.md](../architecture.md) for 
 
 ### `auth login --token <xoxp-…> [--team <id>]`
 
-Validates the token via `auth.test`, derives `team`, `team_name`, `user_id`, and granted `scopes`,
-and writes `workspaces/<TEAM_ID>/token.json` (mode 0600). First stored workspace becomes the default.
-On an invalid token → `AUTH_INVALID`. If the token's team mismatches an explicit `--team` → error.
+Validates the token via `auth.test`, derives `team`, `team_name`, `user_id`, `bot_id` (bot tokens),
+and granted `scopes` — the **mode** follows from `bot_id` (`bot` when present, else `human`; see
+[mrkdwn.md](../behaviors/mrkdwn.md)) unless overridden with `auth mode`, and writes
+`workspaces/<TEAM_ID>/token.json` (mode 0600). First stored workspace becomes the default. On an
+invalid token → `AUTH_INVALID`. If the token's team mismatches an explicit `--team` → error. The
+confirmation names the identity and mode.
+
+### `auth mode [human|bot|auto] [--team <id>]`
+
+Shows the workspace's rendering mode (and whether it was derived from the token or set explicitly),
+or sets it; `auto` clears an explicit override so the mode is derived again. Idempotent (already that
+mode = no-op, exit 0). An unknown value → `USAGE`.|bot] [--team <id>]`
+
+Shows the workspace's rendering mode (and whether it was derived from the token or set explicitly),
+or sets it. Idempotent (already that mode = no-op, exit 0). An unknown value → `USAGE`.
 
 ### `auth workspaces`
 
-Lists stored workspaces with team id, name, authed user, and which is default. Definitive empty state
-if none stored, pointing at `auth setup`.
+Lists stored workspaces with team id, name, authed user, mode, and which is default. Definitive empty
+state if none stored, pointing at `auth setup`.
 
 ### `auth use <team>`
 
