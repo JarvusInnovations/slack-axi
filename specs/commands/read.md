@@ -65,11 +65,15 @@ help[1]:
   messages, with a `help[]` hint to raise the limit or narrow the window.
 - Empty window → definitive empty state naming the channel and resolved range; exit 0.
 - Message text has Slack markup resolved for readability: `<@U…>` → `@name`, `<#C…|name>` → `#name`,
-  `<url|label>` → `label`, `&amp;/&lt;/&gt;` decoded. External (Slack Connect) / guest authors and
-  mentions resolve via the `users.info` fallback; an id that genuinely can't be resolved renders
-  `Uxxxx (unresolved)` — never a bare id and never a guessed name.
+  `<url>` → `url`, `<url|label>` → `label (url)` (or just `url` when the label is only a display form
+  of that URL), `&amp;/&lt;/&gt;` decoded. URLs are never shortened or cut — see
+  [links.md](../behaviors/links.md). External (Slack Connect) / guest authors and mentions resolve via
+  the `users.info` fallback; an id that genuinely can't be resolved renders `Uxxxx (unresolved)` —
+  never a bare id and never a guessed name.
 - `--cite` inlines a `permalink` column for bulk-ingest; `--threads full|summary|none`,
   `--exclude-bots` (count reported as `bot_filtered`), `--tz <zone>`, `--full` (untruncated text).
+- When any row's text was truncated and `--full` was not given, `help[]` carries the `--full` hint (see
+  [output-format.md → Truncation](../behaviors/output-format.md#truncation)). `thread` likewise.
 - `ts` is accepted by `thread`/`cite` (and later `react`/`draft --reply`) in either dotless
   (`1717589640123456`) or dotted (`1717589640.123456`) form.
 - **Reactions, inline (counts only):** when any message in the view has a reaction, a `reactions`
@@ -84,6 +88,10 @@ help[1]:
   *see* the attachment. The `F-id` is the handle for `slack-axi download <file-id…>`, which fetches the
   bytes to a local path. An inaccessible/tombstoned file is shown as `(unavailable) [F-id]`. See
   [files.md](../behaviors/files.md). `thread` carries the same column.
+- **Links, inline:** when any message in the view has a link-unfurl attachment, a `links` column is
+  added (uniform across rows, empty for messages with none) listing each as `title <url>` with the URL
+  always whole. Same free payload as files. See [links.md](../behaviors/links.md). `thread` carries the
+  same column.
 
 ## Actions
 

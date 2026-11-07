@@ -33,6 +33,13 @@ Every command. The shared `output/render.ts` + `output/schema.ts` modules implem
 - Free-text fields (`text`, `purpose`) truncate to ~500 chars with an ellipsis and the total length
   noted. A `--full` flag (or the relevant detail view) returns untruncated content. Never omit a large
   field entirely — always show a truncated preview plus its size.
+- **Truncation announces its escape hatch.** When any field in a response was actually truncated, the
+  `help[]` footer names the flag that un-truncates it (`Re-run with --full for complete message text`).
+  The hint appears only when truncation occurred in that very response — never as boilerplate — and
+  never when `--full` was already given. Every command that truncates has a `--full`.
+- **A URL is atomic.** Truncation never cuts inside a URL: if the cut point would land within one, the
+  preview extends to the end of that URL. A URL prefix cannot be followed and looks like data, so it is
+  worse than either the whole URL or none. See [links.md](links.md).
 
 ### Aggregates
 
