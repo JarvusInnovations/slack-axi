@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 depends: [05-writes]
 specs:
   - specs/commands/write.md
@@ -7,6 +7,7 @@ specs:
   - specs/behaviors/auth-and-workspaces.md
   - specs/architecture.md
 issues: [20]
+pr: 23
 ---
 
 # 14 — edit and delete the token's own messages, through the draft/approve shape
@@ -62,19 +63,19 @@ resends blocks); a `--force` to touch others' messages (never).
 
 ## Validation
 
-- [ ] `edit <channel> <ts> "<text>"` on my own message prepares a `kind: edit` draft showing `old`/`new`;
+- [x] `edit <channel> <ts> "<text>"` on my own message prepares a `kind: edit` draft showing `old`/`new`;
       `draft send` applies it and the message text changes in Slack; the confirmation carries ts +
       permalink + first line of the new text. (Live.)
-- [ ] `edit <sent-draft-id> "<text>"` targets the message that draft posted. (Live.)
-- [ ] `edit`/`delete` on someone else's message → `NOT_MESSAGE_AUTHOR` naming the author, exit 1, no
+- [x] `edit <sent-draft-id> "<text>"` targets the message that draft posted. (Live.)
+- [x] `edit`/`delete` on someone else's message → `NOT_MESSAGE_AUTHOR` naming the author, exit 1, no
       draft written. (Live.)
-- [ ] `delete <channel> <ts>` on my own message prepares a `kind: delete` draft; `draft send` removes
+- [x] `delete <channel> <ts>` on my own message prepares a `kind: delete` draft; `draft send` removes
       it; a second `draft send` is a no-op; preparing + sending another delete of the same ts reports
       already-gone no-op, exit 0. (Live.)
-- [ ] A thread reply can be targeted (lookup falls through to `replies`). (Live.)
-- [ ] `draft list` shows `edit (pending)` / `delete (pending)` / `sent` kinds.
-- [ ] Multi-workspace write-protection gates `draft send` of edit/delete drafts exactly as for posts.
-- [ ] `bun run test`, `typecheck`, `lint`, `format:check` clean.
+- [x] A thread reply can be targeted (lookup falls through to `replies`). (Live.)
+- [x] `draft list` shows `edit (pending)` / `delete (pending)` / `sent` kinds.
+- [x] Multi-workspace write-protection gates `draft send` of edit/delete drafts exactly as for posts.
+- [x] `bun run test`, `typecheck`, `lint`, `format:check` clean.
 
 ## Risks / unknowns
 
@@ -87,8 +88,25 @@ resends blocks); a `--force` to touch others' messages (never).
 
 ## Notes
 
-(At closeout.)
+- **Ownership is checked at preparation, and again by Slack at apply.** The pre-check gives the agent a
+  named author and a clean refusal before anything is written; Slack's `cant_update_message` /
+  `cant_delete_message` still map to `NOT_MESSAGE_AUTHOR` as a backstop (e.g. a race, or an env token
+  whose identity could not be resolved).
+- **A thread reply is invisible to `history`** even with `oldest = latest = ts`; the `replies` fallthrough
+  is what made editing a reply work live. `conversations.replies` with a reply's ts returned just that
+  reply here.
+- **Bot tokens flow through unchanged.** `auth.test` for an `xoxb` token returns both `user_id` (the bot
+  user) and `bot_id`; a bot's messages carry both, so either match works. Stored records written before
+  this plan lack `bot_id` but still match on the bot user id.
+- **Write-protection** for edit/delete sends is the same `activeSession({ teamFlag: draft.team,
+  mutation: true })` call as for posts — exercised live with two workspaces stored.
+- Deleting a message then targeting its ts is `MESSAGE_NOT_FOUND` at preparation; the "already gone"
+  no-op applies only when the message vanishes between preparation and `draft send`.
+- `draft list` lists every draft ever sent (33 here) — pre-existing; worth a `--pending` default later.
 
 ## Follow-ups
 
-(At closeout.)
+- Deferred to [`15-mrkdwn-rendering`](15-mrkdwn-rendering.md) — `edit` runs the new text through the same
+  outgoing renderer as `draft` (and resends blocks for a bot-mode message).
+- Issue [#24](https://github.com/JarvusInnovations/slack-axi/issues/24) — `draft list` should default to
+  pending drafts (`--all` for history).
