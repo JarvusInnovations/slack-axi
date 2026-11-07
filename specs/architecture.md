@@ -21,10 +21,14 @@ minimal schemas, definitive empty states, structured errors, contextual `help[]`
     pagination helpers. The only Slack transport; no hand-rolled HTTP.
   - `slackify-markdown` — Markdown → mrkdwn text for human-mode writes (remark-based; needs Node ≥ 22,
     which sets the package's `engines`).
-  - `@tryfabric/mack` (Jarvus fork, `github:JarvusInnovations/mack`) — Markdown → Block Kit for
-    bot-mode writes; the fork adds native tables, rich_text lists, entity-decoding fixes, and commits
-    its build so the `github:` dependency installs without a compile step. Shared with claude-assist.
-    See [behaviors/mrkdwn.md](behaviors/mrkdwn.md).
+  - `@tryfabric/mack` (Jarvus fork) — Markdown → Block Kit for bot-mode writes; the fork adds native
+    tables, rich_text lists, entity-decoding fixes, and commits its build. Shared with claude-assist.
+    **Pinned as a commit tarball URL**
+    (`https://codeload.github.com/JarvusInnovations/mack/tar.gz/<sha>`), never a `github:` spec: npm
+    runs a git dependency's `prepare` script (`tsc`, a devDependency) on install and fails on hosts
+    without it, which made v1.3.0 uninstallable from the registry; a tarball dependency runs no
+    scripts and the committed `build/` is used as-is. Bumping the fork means bumping the sha. The
+    clean long-term fix is publishing the fork to npm. See [behaviors/mrkdwn.md](behaviors/mrkdwn.md).
 
 ## No daemon
 
