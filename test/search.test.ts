@@ -24,10 +24,8 @@ describe("takeFlags (repeatable)", () => {
     expect(r.values).toEqual([]);
     expect(r.rest).toEqual(["--in", "#eng"]);
   });
-  it("ignores a trailing flag with no value", () => {
-    const r = takeFlags(["--has"], "--has");
-    expect(r.values).toEqual([]);
-    expect(r.rest).toEqual(["--has"]);
+  it("refuses a trailing flag with no value instead of ignoring it", () => {
+    expect(() => takeFlags(["--has"], "--has")).toThrow(/--has needs a value/);
   });
 });
 
@@ -139,6 +137,15 @@ describe("searchCommand — query optional when a filter narrows", () => {
 
   it("accepts --from alone with no query", async () => {
     await expect(searchCommand(["--from", "alice"])).rejects.toMatchObject({ code: "NO_TOKEN" });
+  });
+  it("keeps a -word exclusion as query text (NO_TOKEN, not USAGE)", async () => {
+    // Before, "-staging" was dropped as a flag; a lone exclusion left no query at all → USAGE.
+    await expect(searchCommand(["-staging"])).rejects.toMatchObject({ code: "NO_TOKEN" });
+  });
+  it("refuses a misspelled long flag instead of dropping it", async () => {
+    await expect(searchCommand(["deploy", "--frmo", "alice"])).rejects.toMatchObject({
+      code: "USAGE",
+    });
   });
 
   it("documents filters-only search in --help", async () => {

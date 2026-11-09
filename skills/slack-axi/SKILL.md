@@ -114,3 +114,7 @@ Read/search rows carry a compact `ts` handle, not a full permalink. To turn hand
 - Ownership is checked when the draft is prepared (user id for a user token, bot id for a bot token);
   someone else's message → `NOT_MESSAGE_AUTHOR`, no draft, no override. Post a threaded follow-up instead.
 - `npx -y slack-axi draft list` / `draft discard <id>` — pending drafts (kind + status) / drop one.
+  `draft list --all` includes sent drafts; use it to find the id of something you already posted, for
+  `edit <sent-draft-id>` or `delete <sent-draft-id>`.
+- Flags that take a value fail with `USAGE` if the value is missing, and text may start with `-` (a
+  Markdown list item is fine); a misspelled `--flag` is refused rather than ignored.

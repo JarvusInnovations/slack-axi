@@ -16,6 +16,9 @@ slack-axi search ["<query>"] [--files] [--in <channel>] [--from <@user>] [--with
                              [--on <date>] [--during <month|year>] [--type <t>] [--limit N] [--cite] [--full]
 ```
 
+The free-text `<query>` may use Slack's own search syntax, including `-word` to exclude a term; a
+query word that starts with `-` is query text, never a flag (see
+[errors.md](../behaviors/errors.md#free-text-that-starts-with-a-dash)).
 The free-text `<query>` is **optional when at least one filter narrows the search**. A filters-only
 invocation — e.g. `search --in #eng --from alice --after 2026-05-01` — is a first-class use: it sweeps
 every message matching the filters, exactly as a query-bearing search does. This mirrors Slack's own

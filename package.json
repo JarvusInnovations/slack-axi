@@ -36,7 +36,7 @@
   "dependencies": {
     "@jarvus/mack": "^1.3.0",
     "@slack/web-api": "^7.16.0",
-    "@toon-format/toon": "^2.3.0",
+    "@toon-format/toon": "^2.3.1",
     "axi-sdk-js": "^0.1.7",
     "slackify-markdown": "^5.0.0"
   },

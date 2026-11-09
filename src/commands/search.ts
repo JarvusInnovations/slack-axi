@@ -1,5 +1,5 @@
 import { AxiError } from "axi-sdk-js";
-import { takeBool, takeFlag, takeFlags } from "../flags.js";
+import { takeBool, takeFlag, takeFlags, textArgs } from "../flags.js";
 import {
   anyTruncated,
   encodeObject,
@@ -88,7 +88,9 @@ export async function searchCommand(args: string[]): Promise<string> {
   const cite = citeFlag.present;
   const fullFlag = takeBool(citeFlag.rest, "--full");
   const full = fullFlag.present;
-  const positional = fullFlag.rest.filter((a) => !a.startsWith("-"));
+  // `-word` is Slack's exclusion syntax, so dash-led words are query text; only an unknown `--flag`
+  // is refused. See specs/behaviors/errors.md.
+  const positional = textArgs(fullFlag.rest);
   const query = positional.join(" ").trim();
 
   // The free-text query is optional when a filter narrows the search. A "narrowing filter" is any flag

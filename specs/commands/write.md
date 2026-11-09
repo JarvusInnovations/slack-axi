@@ -119,7 +119,8 @@ List drafts; discard one. By default `draft list` shows only **pending** drafts 
 applied) — the ones an agent can still act on — with a header that states both counts
 (`drafts[2 pending of 46]`) so the filtered view is never mistaken for the whole history; `--all`
 includes sent and applied drafts. With nothing pending, the empty state says how many were already
-sent and points at `--all`. The list shows each draft's kind (`post`, `edit`, `delete`) and status. Drafts are stored locally as `~/.config/slack-axi/drafts/<id>.json` (each records its `team`,
+sent and points at `--all`. The list shows each draft's kind (`post`, `edit`, `delete`) and status.
+Drafts are stored locally as `~/.config/slack-axi/drafts/<id>.json` (each records its `team`,
 so `draft send` acts on the workspace the draft was created against, which also satisfies
 multi-workspace write-protection). A draft record carries `kind` (absent means `post`), the Markdown
 `markdown` source and its rendering (`text`, plus `blocks` in bot mode, or `raw: true`), any
