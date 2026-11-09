@@ -5,7 +5,7 @@
     "": {
       "name": "slack-axi",
       "dependencies": {
-        "@jarvus/mack": "^1.3.0",
+        "@jarvus/mack": "^1.3.2",
         "@slack/web-api": "^7.16.0",
         "@toon-format/toon": "^2.3.1",
         "axi-sdk-js": "^0.1.7",
@@ -27,7 +27,7 @@
 
     "@emnapi/wasi-threads": ["@emnapi/wasi-threads@1.2.1", "", { "dependencies": { "tslib": "^2.4.0" } }, "sha512-uTII7OYF+/Mes/MrcIOYp5yOtSMLBWSIoLPpcgwipoiKbli6k322tcoFsxoIIxPDqW01SQGAgko4EzZi2BNv2w=="],
 
-    "@jarvus/mack": ["@jarvus/mack@1.3.0", "", { "dependencies": { "@slack/types": "^2.20.0", "fast-xml-parser": "^4.0.6", "he": "^1.2.0", "marked": "^4.0.12" } }, "sha512-xVecjcexHyW62eZpIywHYo4uDYgx2dFbHN9a8TTGS+n3zGQowliKC8QxOaWvMzOcvXCLFN8xxv4/imhjk4Uh0g=="],
+    "@jarvus/mack": ["@jarvus/mack@1.3.2", "", { "dependencies": { "@slack/types": "^2.20.0", "fast-xml-parser": "^4.0.6", "he": "^1.2.0", "marked": "^4.0.12" } }, "sha512-3b64NyOOgTt0D46zTIMcy/Rb5ispSfXKdOvHOO+kZLm/OI7Jpd2AY641oLUVzAq6OYypojRyyEtb8aB7OKm21w=="],
 
     "@jridgewell/sourcemap-codec": ["@jridgewell/sourcemap-codec@1.5.5", "", {}, "sha512-cYQ9310grqxueWbl+WuIUIaiUaDcj7WOq5fVhEljNVgRfOUhY9fy2zTvfoqWsnebh8Sl70VScFbICvJnLKB0Og=="],
 
