@@ -70,7 +70,9 @@ arguments accept `#name`, bare `name`, or an id (`C…`/`G…`/`D…`) interchan
 - The query is **optional** when a filter narrows the search: `search --in #eng --from alice --after
   2026-05-01` sweeps by filter alone (no free-text term needed).
 - Modifiers: `--in <channel>`, `--from <@user>` (sender), `--with <@user>` (conversations including a
-  person), `--after <date|span>`, `--before <date|span>`, `--limit <n>`, `--cite`.
+  person), `--after <date|span>`, `--before <date|span>`, `--limit <n>`, `--cite`, `--full`.
+- Matches show a `links` column (`title <url>`, URL whole) when any match carries a link unfurl.
+|span>`, `--before <date|span>`, `--limit <n>`, `--cite`.
 - To read a channel over a window completely, use `read --from --to`, not `search`.
 
 ## Cite (permalinks for the messages you reference)

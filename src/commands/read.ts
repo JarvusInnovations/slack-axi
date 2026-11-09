@@ -3,6 +3,7 @@ import { takeBool, takeFlag } from "../flags.js";
 import {
   anyTruncated,
   encodeObject,
+  fillUniformColumn,
   FULL_HINT,
   joinBlocks,
   renderHelp,
@@ -293,22 +294,6 @@ async function buildRow(
   if (msg.files && msg.files.length > 0) row.files = summarizeFiles(msg.files);
   if (msg.links && msg.links.length > 0) row.links = summarizeLinks(msg.links);
   return row;
-}
-
-/**
- * Make an inline column uniform (auto-when-present): if any row carries a non-empty string under
- * `key`, ensure every row has the key (empty string when it had none) so the TOON table stays compact;
- * otherwise drop the key entirely so the column vanishes. Returns whether the column was applied. Used
- * for the `reactions`, `files`, and `links` columns. See specs/behaviors/reactions.md + files.md + links.md.
- */
-function fillUniformColumn(rows: Array<Record<string, unknown>>, key: string): boolean {
-  const any = rows.some((r) => typeof r[key] === "string" && (r[key] as string).length > 0);
-  if (!any) {
-    for (const r of rows) delete r[key];
-    return false;
-  }
-  for (const r of rows) if (typeof r[key] !== "string") r[key] = "";
-  return true;
 }
 
 const SNIPPET_HINT =

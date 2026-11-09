@@ -3,7 +3,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { takeFlags } from "../src/flags.js";
-import { paginate, searchCommand, SEARCH_HELP, toSearchDate } from "../src/commands/search.js";
+import {
+  messageRow,
+  paginate,
+  searchCommand,
+  SEARCH_HELP,
+  toSearchDate,
+} from "../src/commands/search.js";
 import { resolveUserId } from "../src/slack/resolve.js";
 import type { Session } from "../src/session.js";
 
@@ -194,5 +200,38 @@ describe("resolveUserId", () => {
   });
   it("reports none when nothing matches", () => {
     expect(resolveUserId(session, "nobody")).toEqual({ kind: "none" });
+  });
+});
+
+describe("messageRow — links + --full", () => {
+  const GH = "https://github.com/cal-itp/data-infra/pull/5788";
+  const match = {
+    ts: "1793987439.032659",
+    user: "U1",
+    text: `see ${"x".repeat(600)}`,
+    channel: { id: "C1", name: "data-infra" },
+    attachments: [{ title: "#5788 feat: audit table", title_link: GH }, { fallback: "no url" }],
+  };
+  it("surfaces unfurl links as `title <url>` and drops URL-less attachments", () => {
+    const row = messageRow(match, {}, "America/New_York", false, "T1");
+    expect(row.links).toBe(`#5788 feat: audit table <${GH}>`);
+  });
+  it("truncates text by default and not with --full", () => {
+    expect(String(messageRow(match, {}, "America/New_York", false, "T1").text)).toContain(
+      "(truncated, ",
+    );
+    expect(String(messageRow(match, {}, "America/New_York", false, "T1", true).text)).toBe(
+      match.text,
+    );
+  });
+  it("omits the links key when there are no unfurls", () => {
+    const row = messageRow(
+      { ...match, attachments: undefined },
+      {},
+      "America/New_York",
+      false,
+      "T1",
+    );
+    expect(row.links).toBeUndefined();
   });
 });

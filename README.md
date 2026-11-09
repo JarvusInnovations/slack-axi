@@ -53,7 +53,7 @@ slack-axi reactions <channel> <ts>  # full reactor roster (read/thread show inli
 slack-axi download <file-id…> [--out <dir>]  # fetch message attachments to disk (read/thread list ids)
 slack-axi file <file-id…> [--full]           # print a snippet's / text file's text inline
 slack-axi read/thread … --full   # untruncated text (help[] names --full whenever text was cut)
-slack-axi search ["<query>"] [--in #c] [--from @u] [--with @u] [--after <d>]  # find a thing (query optional if a filter narrows)
+slack-axi search ["<query>"] [--in #c] [--from @u] [--with @u] [--after <d>] [--full]  # find a thing (query optional if a filter narrows)
 slack-axi catchup [--since 1d] [--match q] [--in ...] [--full]   # scoped multi-channel sweep
 slack-axi catchup --every 1w …  # plan a month+ catch-up as weekly batches
 slack-axi cite <channel> <ts…>  # permalinks + the { channel, ts, permalink } citation shape
