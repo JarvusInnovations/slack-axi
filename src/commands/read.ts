@@ -149,6 +149,7 @@ export async function readCommand(args: string[]): Promise<string> {
     anyFiles
       ? "Run `slack-axi download <file-id...>` to fetch attachments (the [F…] ids above)"
       : undefined,
+    hasSnippet([...displayed, ...[...repliesByParent.values()].flat()]) ? SNIPPET_HINT : undefined,
     !complete
       ? `Showing the most recent ${f.limit} of ${total}; raise \`--limit <n>\` or narrow the window`
       : undefined,
@@ -204,6 +205,7 @@ export async function threadCommand(args: string[]): Promise<string> {
     anyFiles
       ? "Run `slack-axi download <file-id...>` to fetch attachments (the [F…] ids above)"
       : undefined,
+    hasSnippet(msgs) ? SNIPPET_HINT : undefined,
     !full.present && anyTruncated(rows) ? FULL_HINT : undefined,
   ].filter((l): l is string => Boolean(l));
 
@@ -307,6 +309,14 @@ function fillUniformColumn(rows: Array<Record<string, unknown>>, key: string): b
   }
   for (const r of rows) if (typeof r[key] !== "string") r[key] = "";
   return true;
+}
+
+const SNIPPET_HINT =
+  "Run `slack-axi file <file-id...>` to read a snippet's text inline (the snippet [F…] ids above)";
+
+/** Whether any message in view carries a snippet — drives the `file` hint. See files.md. */
+function hasSnippet(msgs: Msg[]): boolean {
+  return msgs.some((m) => m.files?.some((f) => f.snippet && !f.unavailable));
 }
 
 function authorName(msg: Msg, users: Record<string, UserMeta>): string {

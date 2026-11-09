@@ -15,8 +15,8 @@ export const READ_SCOPES = [
   "files:read",
 ] as const;
 
-/** Scopes needed for reactions + drafts (read + safe-draft capability set). */
-export const WRITE_SCOPES = ["reactions:write", "chat:write"] as const;
+/** Scopes needed for reactions + drafts, including draft attachments (`files:write`). */
+export const WRITE_SCOPES = ["reactions:write", "chat:write", "files:write"] as const;
 
 export const REQUIRED_SCOPES: string[] = [...READ_SCOPES, ...WRITE_SCOPES];
 

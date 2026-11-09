@@ -21,6 +21,15 @@ import {
 } from "../session.js";
 import { blocksText, renderBlocks, summarizeBlocks } from "../slack/blocks.js";
 import { allCachedUsers, ensureUsersByIds } from "../slack/cache.js";
+import {
+  type Attachment,
+  describeAttachment,
+  findShareTs,
+  MAX_ATTACHMENTS,
+  pinAttachment,
+  shareFiles,
+  uploadFiles,
+} from "../slack/files.js";
 import { toAxiError } from "../slack/errors.js";
 import { formatText, userName } from "../slack/format.js";
 import { renderMrkdwn } from "../slack/mrkdwn.js";
@@ -35,7 +44,7 @@ examples:
   slack-axi react #eng 1717589640123456 :eyes:
   slack-axi react C0123ABCD 1717589640.123456 tada`;
 
-export const DRAFT_HELP = `usage: slack-axi draft <channel> "<markdown>" [--reply <ts>] [--raw] [--preview]
+export const DRAFT_HELP = `usage: slack-axi draft <channel> ["<markdown>"] [--reply <ts>] [--file <path>]… [--snippet <path>]… [--raw] [--preview]
        slack-axi draft send <draft-id>
        slack-axi draft list
        slack-axi draft discard <draft-id>
@@ -44,14 +53,19 @@ Write MARKDOWN: it is rendered to Slack's dialect for the workspace mode (human 
 bot → Block Kit; see \`auth mode\`). Hand-written mrkdwn tokens (<@U…>, <url|label>, • bullets) pass
 through untouched; \`*x*\` means italic — write \`**x**\` for bold.
 \`draft send\` is also how an \`edit\` or \`delete\` draft is applied (one approval step for every write).
-flags[3]:
-  --reply <ts>   Post as a thread reply
-  --raw          Skip rendering; send the text verbatim (for callers that already write mrkdwn)
-  --preview      Print the rendering and write nothing
+Attachments are pinned (size + SHA-256) when the draft is made and uploaded only at \`draft send\`; a
+file that changed in between refuses the send (ATTACHMENT_CHANGED). Needs the files:write scope.
+flags[5]:
+  --reply <ts>       Post as a thread reply
+  --file <path>      Attach a local file (repeatable; text optional when attaching)
+  --snippet <path>   Attach a local text file as a snippet, syntax from its extension (repeatable)
+  --raw              Skip rendering; send the text verbatim (for callers that already write mrkdwn)
+  --preview          Print the rendering and write nothing
 examples:
   slack-axi draft #eng "Deploy is **green** ✅ — see [runbook](https://r.un/book)"
   slack-axi draft #eng --reply 1717589640123456 "confirmed"
   slack-axi draft #eng --preview "## Status\\n- api ok\\n- web ok"
+  slack-axi draft #eng "The failing query:" --snippet ./q.sql --file ./error.png
   slack-axi draft send d_1a2b3c4d`;
 
 export const EDIT_HELP = `usage: slack-axi edit <channel> <ts> "<new markdown>" [--raw] [--preview]
@@ -145,6 +159,46 @@ export function describeOutgoing(mode: Mode, out: Outgoing, raw: boolean): Recor
 
 const DRAFT_ID_RE = /^d_[0-9a-f]{8}$/;
 
+/** The attachment flags, which `edit`/`delete` refuse (Slack can't change a message's files). */
+const ATTACHMENT_FLAGS = ["--file", "--snippet"];
+
+/**
+ * Pull repeatable `--file <path>` / `--snippet <path>` flags out of `args`, in the order given.
+ * Returns the requested attachments (unvalidated) and the remaining args.
+ */
+export function takeAttachments(args: string[]): {
+  requested: Array<{ kind: "file" | "snippet"; path: string }>;
+  rest: string[];
+} {
+  const requested: Array<{ kind: "file" | "snippet"; path: string }> = [];
+  const rest: string[] = [];
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i];
+    if ((a === "--file" || a === "--snippet") && i + 1 < args.length) {
+      requested.push({ kind: a === "--file" ? "file" : "snippet", path: args[i + 1] });
+      i++;
+      continue;
+    }
+    rest.push(a);
+  }
+  return { requested, rest };
+}
+
+function refuseAttachments(args: string[], command: string): void {
+  if (args.some((a) => ATTACHMENT_FLAGS.includes(a))) {
+    throw new AxiError(`\`${command}\` cannot add or change attachments`, "USAGE", [
+      "Slack cannot change a message's files; delete and re-post with `slack-axi draft … --file <path>`",
+    ]);
+  }
+}
+
+/** The `attachments[N]{name,kind,size,path}` block of a draft echo, or `""` when there are none. */
+function attachmentsBlock(attachments: Attachment[] | undefined): string {
+  return attachments && attachments.length > 0
+    ? renderList("attachments", attachments.map(describeAttachment))
+    : "";
+}
+
 export async function reactCommand(args: string[]): Promise<string> {
   if (args.includes("--help")) return REACT_HELP;
   const team = takeFlag(args, "--team");
@@ -187,6 +241,7 @@ export async function draftCommand(args: string[]): Promise<string> {
 
 export async function editCommand(args: string[]): Promise<string> {
   if (args.includes("--help")) return EDIT_HELP;
+  refuseAttachments(args, "edit");
   const usage =
     'usage: slack-axi edit <channel> <ts> "<new text>"  |  edit <sent-draft-id> "<new text>"';
   const raw = takeBool(args, "--raw");
@@ -254,6 +309,7 @@ export async function editCommand(args: string[]): Promise<string> {
 
 export async function deleteCommand(args: string[]): Promise<string> {
   if (args.includes("--help")) return DELETE_HELP;
+  refuseAttachments(args, "delete");
   const usage = "usage: slack-axi delete <channel> <ts>  |  delete <sent-draft-id>";
   const { target } = await resolveTarget(args, usage, false);
 
@@ -265,6 +321,7 @@ export async function deleteCommand(args: string[]): Promise<string> {
     kind: "delete",
     target_ts: target.ts,
     ...(target.chunks ? { target_chunks: target.chunks } : {}),
+    ...(target.files ? { target_files: target.files } : {}),
     previous_text: target.message.text,
     text: "",
     created_at: new Date().toISOString(),
@@ -279,6 +336,7 @@ export async function deleteCommand(args: string[]): Promise<string> {
       channel: `${target.label} (${target.channelId})`,
       target: handle(target.ts),
       ...(target.chunks ? { also_removes: target.chunks.slice(1).map(handle).join(", ") } : {}),
+      ...(target.files ? { also_deletes_files: target.files.join(", ") } : {}),
       old: target.previousRendered,
     }),
     renderHelp([
@@ -306,6 +364,8 @@ interface Target {
   previousRendered: string;
   /** For a multi-chunk post targeted by draft id: every chunk ts (delete removes them all). */
   chunks?: string[];
+  /** For an attachment post targeted by draft id: the files it uploaded (delete removes them too). */
+  files?: string[];
 }
 
 /**
@@ -327,6 +387,7 @@ async function resolveTarget(
   let ts: string;
   let textParts: string[];
   let chunks: string[] | undefined;
+  let files: string[] | undefined;
 
   if (DRAFT_ID_RE.test(positional[0])) {
     const prior = getDraft(positional[0]);
@@ -358,9 +419,25 @@ async function resolveTarget(
       );
     }
     chunks = chunkCount > 1 ? prior.sent.chunks : undefined;
+    files = prior.sent.files && prior.sent.files.length > 0 ? prior.sent.files : undefined;
     session = await activeSession({ teamFlag: team.value ?? prior.team });
     channelId = prior.channel_id;
     ts = prior.sent.ts;
+    if (!ts && files) {
+      // The share's ts wasn't known at send time (Slack reports it asynchronously): look it up again.
+      ts = (await findShareTs(session, files[0], channelId, 5_000)) ?? "";
+      if (!ts) {
+        throw new AxiError(
+          `Slack hasn't reported the message for draft ${positional[0]} yet`,
+          "SHARE_PENDING",
+          ["Retry in a few seconds"],
+        );
+      }
+      prior.sent.ts = ts;
+      if (prior.sent.chunks) prior.sent.chunks[0] = ts;
+      prior.sent.permalink = await getPermalink(session, channelId, ts);
+      writeDraft(prior);
+    }
   } else {
     const [channelArg, tsArg, ...rest] = positional;
     if (!channelArg || !tsArg || (takesText && rest.length === 0)) {
@@ -415,6 +492,7 @@ async function resolveTarget(
       message,
       previousRendered: formatText(message.text, users),
       ...(chunks ? { chunks } : {}),
+      ...(files ? { files } : {}),
     },
     text: textParts.join(" ").trim(),
   };
@@ -433,34 +511,48 @@ function workspaceLabel(session: Session): string {
 async function draftCreate(args: string[]): Promise<string> {
   const team = takeFlag(args, "--team");
   const reply = takeFlag(team.rest, "--reply");
-  const raw = takeBool(reply.rest, "--raw");
+  const attach = takeAttachments(reply.rest);
+  const raw = takeBool(attach.rest, "--raw");
   const preview = takeBool(raw.rest, "--preview");
   const positional = preview.rest.filter((a) => !a.startsWith("-"));
   const channelArg = positional[0];
   const markdown = positional.slice(1).join(" ");
-  if (!channelArg || !markdown) {
+  if (!channelArg || (!markdown && attach.requested.length === 0)) {
     throw new AxiError(
-      'usage: slack-axi draft <channel> "<markdown>" [--reply <ts>] [--raw] [--preview]',
+      'usage: slack-axi draft <channel> ["<markdown>"] [--reply <ts>] [--file <path>]… [--snippet <path>]… [--raw] [--preview]',
       "USAGE",
       [],
     );
   }
+  if (attach.requested.length > MAX_ATTACHMENTS) {
+    throw new AxiError(
+      `${attach.requested.length} attachments given; Slack allows at most ${MAX_ATTACHMENTS} per message`,
+      "USAGE",
+      ["Split them across several drafts (e.g. a reply with `--reply <ts>`)"],
+    );
+  }
+  // Pin every attachment before any network call: a bad path costs nothing.
+  const attachments = attach.requested.map((r) => pinAttachment(r.path, r.kind));
 
   // Creating a draft is local-only (no Slack write), but we resolve the channel to validate + label it.
   const session = await activeSession({ teamFlag: team.value });
   const channel = await resolveChannel(session, channelArg);
   const label = await channelLabel(session, channel);
   const mode = await resolveMode(session);
-  const out = await renderOutgoing(mode, markdown, raw.present);
-  const shown = describeOutgoing(mode, out, raw.present);
+  const out = markdown ? await renderOutgoing(mode, markdown, raw.present) : { text: "" };
+  // An attachment-only draft has no text to show.
+  const shown = markdown ? describeOutgoing(mode, out, raw.present) : { mode };
 
   if (preview.present) {
-    return encodeObject({
-      preview: "nothing saved",
-      channel: `${label} (${channel.id})`,
-      ...(reply.value ? { reply_to: handle(dottedTs(reply.value)) } : {}),
-      ...shown,
-    });
+    return joinBlocks(
+      encodeObject({
+        preview: "nothing saved",
+        channel: `${label} (${channel.id})`,
+        ...(reply.value ? { reply_to: handle(dottedTs(reply.value)) } : {}),
+        ...shown,
+      }),
+      attachmentsBlock(attachments),
+    );
   }
 
   const draft: Draft = {
@@ -473,6 +565,7 @@ async function draftCreate(args: string[]): Promise<string> {
     text: out.text,
     ...(out.blocks ? { blocks: out.blocks } : {}),
     ...(raw.present ? { raw: true } : {}),
+    ...(attachments.length > 0 ? { attachments } : {}),
     created_at: new Date().toISOString(),
   };
   writeDraft(draft);
@@ -485,6 +578,7 @@ async function draftCreate(args: string[]): Promise<string> {
       ...(draft.reply_to ? { reply_to: handle(draft.reply_to) } : {}),
       ...shown,
     }),
+    attachmentsBlock(attachments),
     renderHelp([
       `Review it, then post with \`slack-axi draft send ${draft.id}\` (or discard with \`draft discard ${draft.id}\`)`,
     ]),
@@ -564,6 +658,19 @@ async function draftSend(args: string[]): Promise<string> {
         else throw toAxiError(err, { team: draft.team, channel: draft.channel });
       }
     }
+    // Then the files a draft-id delete carries (deleting the message leaves them in the channel).
+    let filesDeleted = 0;
+    for (const f of draft.target_files ?? []) {
+      try {
+        await session.client.files.delete({ file: f });
+        filesDeleted++;
+      } catch (err) {
+        const code = (err as { data?: { error?: string } })?.data?.error;
+        if (code !== "file_not_found" && code !== "file_deleted") {
+          throw toAxiError(err, { team: draft.team, channel: draft.channel });
+        }
+      }
+    }
     draft.sent = { ts, permalink: "", at: new Date().toISOString() };
     writeDraft(draft);
     return encodeObject({
@@ -572,11 +679,12 @@ async function draftSend(args: string[]): Promise<string> {
       channel,
       ts: handle(ts),
       deleted:
-        gone === targets.length
+        gone === targets.length && filesDeleted === 0
           ? "already gone (no-op)"
           : targets.length > 1
-            ? ` message(s)`
+            ? `${targets.length - gone} message(s)`
             : true,
+      ...(draft.target_files ? { files_deleted: filesDeleted } : {}),
     });
   }
 
@@ -584,12 +692,24 @@ async function draftSend(args: string[]): Promise<string> {
   const chunks: Array<KnownBlock[] | undefined> =
     blocks && blocks.length > 0 ? blocks : [undefined];
   const posted: string[] = [];
+  const attachments = draft.attachments ?? [];
+  let fileIds: string[] = [];
+  let sharePending = false;
   for (let i = 0; i < chunks.length; i++) {
     const chunk = chunks[i];
     const base = {
       channel: draft.channel_id,
       ...(draft.reply_to ? { thread_ts: draft.reply_to } : {}),
     };
+    if (i === 0 && attachments.length > 0) {
+      // The first message carries the files: upload (bytes verified against the pin), then share
+      // them with the text (human/raw) or the first chunk's blocks (bot) in one completeUploadExternal.
+      const ts = await sendWithAttachments(session, draft, attachments, chunk);
+      fileIds = ts.fileIds;
+      if (!ts.ts) sharePending = true;
+      posted.push(ts.ts ?? "");
+      continue;
+    }
     try {
       const res = chunk
         ? await session.client.chat.postMessage({
@@ -622,18 +742,71 @@ async function draftSend(args: string[]): Promise<string> {
     permalink,
     at: new Date().toISOString(),
     ...(posted.length > 1 ? { chunks: posted } : {}),
+    ...(fileIds.length > 0 ? { files: fileIds } : {}),
   };
   writeDraft(draft);
 
-  return encodeObject({
-    sent: id,
-    channel,
-    ts: handle(ts),
-    permalink,
-    ...(posted.length > 1
-      ? { messages: posted.length, all_ts: posted.map((t) => handle(t)).join(", ") }
-      : {}),
-  });
+  return joinBlocks(
+    encodeObject({
+      sent: id,
+      channel,
+      ts: sharePending ? "pending" : handle(ts),
+      ...(permalink ? { permalink } : {}),
+      ...(fileIds.length > 0 ? { files: fileIds.join(", ") } : {}),
+      ...(posted.length > 1
+        ? {
+            messages: posted.length,
+            all_ts: posted.map((t) => (t ? handle(t) : "pending")).join(", "),
+          }
+        : {}),
+    }),
+    sharePending
+      ? renderHelp([
+          "Slack hasn't reported the message's ts yet; it is posted. `edit`/`delete` by draft id look it up again",
+        ])
+      : "",
+  );
+}
+
+/**
+ * Upload a draft's pinned attachments and share them as the first message, returning the uploaded
+ * file ids and the shared message's ts (undefined if Slack hasn't reported it within the poll bound).
+ * Bot-mode blocks rejected as `invalid_blocks` fall back to the blocks' text, as chunk posting does.
+ */
+async function sendWithAttachments(
+  session: Session,
+  draft: Draft,
+  attachments: Attachment[],
+  chunk: KnownBlock[] | undefined,
+): Promise<{ fileIds: string[]; ts?: string }> {
+  const ctx = { team: draft.team, channel: draft.channel };
+  let fileIds: string[];
+  try {
+    fileIds = await uploadFiles(session, attachments);
+  } catch (err) {
+    throw toAxiError(err, ctx);
+  }
+  const names = attachments.map((a) => a.name);
+  const dest = { channelId: draft.channel_id, threadTs: draft.reply_to };
+  try {
+    await shareFiles(
+      session,
+      fileIds,
+      names,
+      chunk ? { ...dest, blocks: chunk } : { ...dest, text: draft.text },
+    );
+  } catch (err) {
+    const code = (err as { data?: { error?: string } })?.data?.error;
+    if (!(chunk && code === "invalid_blocks")) throw toAxiError(err, ctx);
+    await shareFiles(session, fileIds, names, {
+      ...dest,
+      text: blocksText(chunk) || draft.text,
+    }).catch((e) => {
+      throw toAxiError(e, ctx);
+    });
+  }
+  const ts = await findShareTs(session, fileIds[0], draft.channel_id).catch(() => undefined);
+  return { fileIds, ...(ts ? { ts } : {}) };
 }
 
 function draftList(): string {
@@ -649,7 +822,10 @@ function draftList(): string {
     channel: d.channel,
     status: draftStatus(d),
     text: truncate(
-      draftKind(d) === "delete" ? (d.previous_text ?? "") : (d.markdown ?? d.text),
+      draftKind(d) === "delete"
+        ? (d.previous_text ?? "")
+        : (d.markdown ?? d.text) ||
+            (d.attachments ? d.attachments.map((a) => a.name).join(", ") : ""),
       80,
     ),
   }));
