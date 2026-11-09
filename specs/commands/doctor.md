@@ -25,8 +25,9 @@ checks[4]{check,status,detail}:
   scopes,warn,missing search:read
   read_probe,ok,users.conversations reachable
   rate_limit,ok,no recent 429s
-help[1]:
-  Re-run `slack-axi auth setup` to add scope `search:read`, then re-install the app
+help[2]:
+  Add `search:read` under User Token Scopes on the app's OAuth & Permissions page (https://api.slack.com/apps), then click Reinstall to Workspace
+  The token stays the same, so there is no need to log in again; re-run `slack-axi doctor` to confirm
 ```
 
 - Exit code 1 if any check is `fail`; warnings keep exit 0 (for CI/scripted use).

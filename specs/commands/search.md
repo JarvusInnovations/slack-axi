@@ -13,9 +13,12 @@ oldest→newest, declaring whether the sweep was exhaustive. Both honor *Never s
 ```
 slack-axi search ["<query>"] [--files] [--in <channel>] [--from <@user>] [--with <@user>] [--to <@user>]
                              [--has <x>]… [--is <x>]… [--after <when>] [--before <when>]
-                             [--on <date>] [--during <month|year>] [--type <t>] [--limit N] [--cite]
+                             [--on <date>] [--during <month|year>] [--type <t>] [--limit N] [--cite] [--full]
 ```
 
+The free-text `<query>` may use Slack's own search syntax, including `-word` to exclude a term; a
+query word that starts with `-` is query text, never a flag (see
+[errors.md](../behaviors/errors.md#free-text-that-starts-with-a-dash)).
 The free-text `<query>` is **optional when at least one filter narrows the search**. A filters-only
 invocation — e.g. `search --in #eng --from alice --after 2026-05-01` — is a first-class use: it sweeps
 every message matching the filters, exactly as a query-bearing search does. This mirrors Slack's own
@@ -83,7 +86,10 @@ a personal token cannot see private channels or DMs the user isn't in, and the h
 boundary explicit on every result so a partial view is never mistaken for the whole workspace.
 
 Message schema `{channel,author,when,text,ts}` — `channel` pairs name+id; `when` is a human Eastern
-datetime; `text` is truncated; `ts` is the stateless citation handle. File schema
+datetime; `text` is truncated (`--full` disables it, and `help[]` names `--full` whenever a row was cut
+— see [output-format.md → Truncation](../behaviors/output-format.md#truncation)); `ts` is the stateless
+citation handle. When any match carries a link unfurl, a uniform `links` column is added exactly as on
+`read`/`thread` (see [links.md](../behaviors/links.md)). File schema
 `{title,type,author,when,id,permalink}`. Permalinks come from `--cite` (messages) or inline (files),
 same citation model as `read`.
 

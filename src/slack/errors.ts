@@ -1,4 +1,5 @@
 import { AxiError } from "axi-sdk-js";
+import { addScopesHelp } from "./scopes.js";
 
 /**
  * Translate a Slack API error code into a structured AxiError with an actionable suggestion.
@@ -22,9 +23,7 @@ export function slackErrorToAxi(
         "Set SLACK_AXI_TOKEN or run `slack-axi auth login`",
       ]);
     case "missing_scope":
-      return new AxiError("Token is missing a required scope", "SCOPE_MISSING", [
-        "Re-run `slack-axi auth setup`, add the missing scope, and re-install the app",
-      ]);
+      return new AxiError("Token is missing a required scope", "SCOPE_MISSING", addScopesHelp([]));
     case "channel_not_found":
       return new AxiError(
         context.channel ? `Channel '${context.channel}' not found` : "Channel not found",

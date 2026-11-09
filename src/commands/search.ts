@@ -1,6 +1,17 @@
 import { AxiError } from "axi-sdk-js";
-import { takeBool, takeFlag, takeFlags } from "../flags.js";
-import { encodeObject, joinBlocks, renderHelp, renderList, truncate } from "../output.js";
+import { takeBool, takeFlag, takeFlags, textArgs } from "../flags.js";
+import {
+  anyTruncated,
+  encodeObject,
+  fillUniformColumn,
+  FULL_HINT,
+  joinBlocks,
+  renderHelp,
+  renderList,
+  truncate,
+  wasTruncated,
+} from "../output.js";
+import { linksFromAttachments, summarizeLinks } from "../slack/links.js";
 import { activeSession, type Session } from "../session.js";
 import {
   allCachedUsers,
@@ -16,6 +27,7 @@ import {
   resolveChannel,
   resolveUserId,
 } from "../slack/resolve.js";
+import { addScopesHelp } from "../slack/scopes.js";
 import { handle } from "../slack/ts.js";
 import { DEFAULT_TZ, formatDate, formatDateTime, parseSpanMs, tsToEpochMs } from "../slack/time.js";
 
@@ -24,7 +36,7 @@ Finds messages (or files) across every conversation you belong to. Exhaustive by
 matches, oldest→newest, and declares completeness. The query is optional when a filter narrows the
 search (e.g. \`--in\`/\`--from\`/\`--after\`) — search by filter alone. To read a channel over a window
 completely, use \`read <channel> --from --to\` instead.
-flags[13]:
+flags[14]:
   --files          Search files/attachments instead of messages
   --in <channel>   Limit to a channel (#name or id)
   --from <@user>   Limit to a sender (bare name resolved to an exact id)
@@ -38,6 +50,7 @@ flags[13]:
   --type <t>       Keep only public | private | mpim | im conversations (post-filter)
   --limit <n>      Cap matches (default: all); raise/lower to bound the sweep
   --cite           Add a permalink column (matches already carry one)
+  --full           Don't truncate message text or file titles
 examples:
   slack-axi search "proposal loss"
   slack-axi search "token refresh" --in #eng --after 2026-05-01
@@ -73,7 +86,11 @@ export async function searchCommand(args: string[]): Promise<string> {
   const limitFlag = takeFlag(typeFlag.rest, "--limit");
   const citeFlag = takeBool(limitFlag.rest, "--cite");
   const cite = citeFlag.present;
-  const positional = citeFlag.rest.filter((a) => !a.startsWith("-"));
+  const fullFlag = takeBool(citeFlag.rest, "--full");
+  const full = fullFlag.present;
+  // `-word` is Slack's exclusion syntax, so dash-led words are query text; only an unknown `--flag`
+  // is refused. See specs/behaviors/errors.md.
+  const positional = textArgs(fullFlag.rest);
   const query = positional.join(" ").trim();
 
   // The free-text query is optional when a filter narrows the search. A "narrowing filter" is any flag
@@ -154,8 +171,10 @@ export async function searchCommand(args: string[]): Promise<string> {
     ? await sweepFiles(session, fullQuery, cap)
     : await sweepMessages(session, fullQuery, cap);
   let rows = files
-    ? (sweep.items as FileMatch[]).map((m) => fileRow(m, users, tz, cite))
-    : (sweep.items as MessageMatch[]).map((m) => messageRow(m, users, tz, cite, session.teamId));
+    ? (sweep.items as FileMatch[]).map((m) => fileRow(m, users, tz, cite, full))
+    : (sweep.items as MessageMatch[]).map((m) =>
+        messageRow(m, users, tz, cite, session.teamId, full),
+      );
 
   // `--type` is a post-filter over retrieved matches (Slack search has no conversation-type modifier),
   // so we report it honestly as a filter, never as query narrowing. Files have no single channel.
@@ -166,6 +185,8 @@ export async function searchCommand(args: string[]): Promise<string> {
     typeFiltered = before - rows.length;
   }
   for (const r of rows) delete r.__type;
+  // Link unfurls ride on each match like read/thread: a uniform column, only when some row has one.
+  if (!files) fillUniformColumn(rows, "links");
 
   if (rows.length === 0) {
     const empty = type
@@ -199,6 +220,9 @@ export async function searchCommand(args: string[]): Promise<string> {
     !sweep.complete
       ? `Showing ${sweep.items.length} of ${sweep.total}; raise \`--limit <n>\` or narrow the query`
       : undefined,
+    !full && (anyTruncated(rows) || rows.some((r) => wasTruncated(r.title)))
+      ? FULL_HINT
+      : undefined,
     !cite
       ? "Add `--cite` (or run `slack-axi cite <channel> <ts>`) for permalinks to cite"
       : undefined,
@@ -230,6 +254,8 @@ type MessageMatch = {
   text?: string;
   permalink?: string;
   channel?: { id?: string; name?: string };
+  /** Link-unfurl attachments, as on history/replies messages. See slack/links.ts. */
+  attachments?: unknown;
 };
 
 type FileMatch = {
@@ -322,23 +348,27 @@ export async function paginate<T>(
 
 // ---------------------------------------------------------------------------- rows
 
-function messageRow(
+export function messageRow(
   m: MessageMatch,
   users: Record<string, UserMeta>,
   tz: string,
   cite: boolean,
   teamId: string,
+  full = false,
 ): Record<string, unknown> {
   const ts = String(m.ts ?? "");
+  const text = formatText(typeof m.text === "string" ? m.text : "", users);
   const row: Record<string, unknown> = {
     channel: formatMatchChannel(m.channel),
     author: m.username || (m.user ? userName(m.user, users) : "(unknown)"),
     when: m.ts ? formatDateTime(tsToEpochMs(ts), tz) : "",
-    text: truncate(formatText(typeof m.text === "string" ? m.text : "", users)),
+    text: full ? text : truncate(text),
     ts: handle(ts),
     __type: convTypeOf(teamId, m.channel?.id),
   };
   if (cite && typeof m.permalink === "string") row.permalink = m.permalink;
+  const links = linksFromAttachments(m.attachments);
+  if (links.length > 0) row.links = summarizeLinks(links);
   return row;
 }
 
@@ -347,10 +377,13 @@ function fileRow(
   users: Record<string, UserMeta>,
   tz: string,
   cite: boolean,
+  full = false,
 ): Record<string, unknown> {
   const author = typeof m.user === "string" ? userName(m.user, users) : m.username || "(unknown)";
   const row: Record<string, unknown> = {
-    title: truncate(m.title || m.name || "(untitled)", 120),
+    title: full
+      ? m.title || m.name || "(untitled)"
+      : truncate(m.title || m.name || "(untitled)", 120),
     type: m.filetype || "",
     author,
     when: typeof m.timestamp === "number" ? formatDateTime(m.timestamp * 1000, tz) : "",
@@ -432,9 +465,11 @@ export function toSearchDate(when: string, tz: string): string {
 function scopeError(err: unknown, scope: string): unknown {
   const code = (err as { data?: { error?: string } })?.data?.error;
   if (code === "missing_scope") {
-    return new AxiError(`Token is missing the ${scope} scope`, "SCOPE_MISSING", [
-      `Re-run \`slack-axi auth setup\`, add ${scope}, re-install the app, then \`auth login\``,
-    ]);
+    return new AxiError(
+      `Token is missing the ${scope} scope`,
+      "SCOPE_MISSING",
+      addScopesHelp([scope]),
+    );
   }
   return err;
 }

@@ -19,11 +19,17 @@ and `slack/client.ts` (WebClient per team).
 - User token (`xoxp-`) — required because `search:read` is user-token-only and reading the user's
   private channels / group DMs / DMs requires acting as the user.
 - Scopes: `channels:read groups:read im:read mpim:read channels:history groups:history im:history
-  mpim:history search:read users:read reactions:read files:read` + `reactions:write chat:write`.
-  (`files:read` is needed to download attachment bytes — see [files.md](files.md); message text and
-  file *metadata* need only the history scopes.)
+  mpim:history search:read users:read reactions:read files:read` + `reactions:write chat:write
+  files:write`. (`files:read` is needed to download or print attachment bytes and `files:write` to
+  upload attachments — see [files.md](files.md); message text and file *metadata* need only the
+  history scopes.)
 - `doctor` compares granted scopes (from `auth.test`/stored metadata) against this required set and
   reports any gap with the exact missing scope.
+- **Adding a scope to an existing app does not change its token.** Adding the scope under User Token
+  Scopes (or in the manifest) and clicking Reinstall to Workspace grants it to the token already
+  stored. Every missing-scope hint (`doctor`, `auth login`, `auth setup`, `SCOPE_MISSING` errors) gives
+  exactly that fix, and never says to log in again. Granted scopes are read live from `auth.test`, so
+  the change shows up on the next run.
 
 ### Token resolution order
 

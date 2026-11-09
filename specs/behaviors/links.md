@@ -9,7 +9,7 @@ than dropped.
 
 ## Applies To
 
-- `read` / `thread` — `links` column; link rendering in `text`.
+- `read` / `thread` / `search` — `links` column; link rendering in `text`.
 - `catchup` — `[+N link(s)]` note (count only; the sweep stays lean).
 - Text rendering everywhere `formatText` is used (`read`, `thread`, `catchup`, `search`).
 - Truncation everywhere `truncate` is used (see [output-format.md](output-format.md)).

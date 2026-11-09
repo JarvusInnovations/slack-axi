@@ -1,3 +1,4 @@
+import type { Attachment } from "./slack/files.js";
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
@@ -116,6 +117,8 @@ export interface Draft {
   target_ts?: string;
   /** For delete of a multi-chunk post: every chunk ts (target_ts is the first). */
   target_chunks?: string[];
+  /** For delete by sent-draft id: the files that draft uploaded (deleted along with the message). */
+  target_files?: string[];
   /** For edit/delete: the target's text at preparation time (so the review shows old → new). */
   previous_text?: string;
   /** The Markdown source as given (absent for records written before rendering existed). */
@@ -126,9 +129,11 @@ export interface Draft {
   blocks?: unknown[][];
   /** True when rendering was skipped (`--raw`). */
   raw?: boolean;
+  /** Local files pinned at preparation time (path, size, SHA-256); uploaded only at `draft send`. */
+  attachments?: Attachment[];
   created_at: string;
   /** `ts` is the first (or only) message; `chunks` lists every ts when a bot-mode post spanned several. */
-  sent?: { ts: string; permalink: string; at: string; chunks?: string[] };
+  sent?: { ts: string; permalink: string; at: string; chunks?: string[]; files?: string[] };
 }
 
 function draftsDir(): string {

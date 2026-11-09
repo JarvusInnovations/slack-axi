@@ -92,4 +92,20 @@ export function anyTruncated(rows: Array<Record<string, unknown>>): boolean {
 }
 
 /** The `help[]` line that names the escape hatch, shown only when truncation actually occurred. */
-export const FULL_HINT = "Some message text was truncated; re-run with `--full` for complete text";
+export const FULL_HINT = "Some text was truncated; re-run with `--full` for the complete text";
+
+/**
+ * Make an inline column uniform (auto-when-present): if any row carries a non-empty string under
+ * `key`, ensure every row has the key (empty string when it had none) so the TOON table stays compact;
+ * otherwise drop the key entirely so the column vanishes. Returns whether the column was applied. Used
+ * for the `reactions`, `files`, and `links` columns. See specs/behaviors/reactions.md + files.md + links.md.
+ */
+export function fillUniformColumn(rows: Array<Record<string, unknown>>, key: string): boolean {
+  const any = rows.some((r) => typeof r[key] === "string" && (r[key] as string).length > 0);
+  if (!any) {
+    for (const r of rows) delete r[key];
+    return false;
+  }
+  for (const r of rows) if (typeof r[key] !== "string") r[key] = "";
+  return true;
+}

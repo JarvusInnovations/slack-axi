@@ -3,7 +3,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { takeFlags } from "../src/flags.js";
-import { paginate, searchCommand, SEARCH_HELP, toSearchDate } from "../src/commands/search.js";
+import {
+  messageRow,
+  paginate,
+  searchCommand,
+  SEARCH_HELP,
+  toSearchDate,
+} from "../src/commands/search.js";
 import { resolveUserId } from "../src/slack/resolve.js";
 import type { Session } from "../src/session.js";
 
@@ -18,10 +24,8 @@ describe("takeFlags (repeatable)", () => {
     expect(r.values).toEqual([]);
     expect(r.rest).toEqual(["--in", "#eng"]);
   });
-  it("ignores a trailing flag with no value", () => {
-    const r = takeFlags(["--has"], "--has");
-    expect(r.values).toEqual([]);
-    expect(r.rest).toEqual(["--has"]);
+  it("refuses a trailing flag with no value instead of ignoring it", () => {
+    expect(() => takeFlags(["--has"], "--has")).toThrow(/--has needs a value/);
   });
 });
 
@@ -134,6 +138,15 @@ describe("searchCommand — query optional when a filter narrows", () => {
   it("accepts --from alone with no query", async () => {
     await expect(searchCommand(["--from", "alice"])).rejects.toMatchObject({ code: "NO_TOKEN" });
   });
+  it("keeps a -word exclusion as query text (NO_TOKEN, not USAGE)", async () => {
+    // Before, "-staging" was dropped as a flag; a lone exclusion left no query at all → USAGE.
+    await expect(searchCommand(["-staging"])).rejects.toMatchObject({ code: "NO_TOKEN" });
+  });
+  it("refuses a misspelled long flag instead of dropping it", async () => {
+    await expect(searchCommand(["deploy", "--frmo", "alice"])).rejects.toMatchObject({
+      code: "USAGE",
+    });
+  });
 
   it("documents filters-only search in --help", async () => {
     const help = await searchCommand(["--help"]);
@@ -194,5 +207,38 @@ describe("resolveUserId", () => {
   });
   it("reports none when nothing matches", () => {
     expect(resolveUserId(session, "nobody")).toEqual({ kind: "none" });
+  });
+});
+
+describe("messageRow — links + --full", () => {
+  const GH = "https://github.com/cal-itp/data-infra/pull/5788";
+  const match = {
+    ts: "1793987439.032659",
+    user: "U1",
+    text: `see ${"x".repeat(600)}`,
+    channel: { id: "C1", name: "data-infra" },
+    attachments: [{ title: "#5788 feat: audit table", title_link: GH }, { fallback: "no url" }],
+  };
+  it("surfaces unfurl links as `title <url>` and drops URL-less attachments", () => {
+    const row = messageRow(match, {}, "America/New_York", false, "T1");
+    expect(row.links).toBe(`#5788 feat: audit table <${GH}>`);
+  });
+  it("truncates text by default and not with --full", () => {
+    expect(String(messageRow(match, {}, "America/New_York", false, "T1").text)).toContain(
+      "(truncated, ",
+    );
+    expect(String(messageRow(match, {}, "America/New_York", false, "T1", true).text)).toBe(
+      match.text,
+    );
+  });
+  it("omits the links key when there are no unfurls", () => {
+    const row = messageRow(
+      { ...match, attachments: undefined },
+      {},
+      "America/New_York",
+      false,
+      "T1",
+    );
+    expect(row.links).toBeUndefined();
   });
 });

@@ -13,6 +13,7 @@ import { catchupCommand, CATCHUP_HELP } from "./commands/catchup.js";
 import { citeCommand, CITE_HELP } from "./commands/cite.js";
 import { doctorCommand, DOCTOR_HELP } from "./commands/doctor.js";
 import { downloadCommand, DOWNLOAD_HELP } from "./commands/download.js";
+import { fileCommand, FILE_HELP } from "./commands/file.js";
 import { homeCommand } from "./commands/home.js";
 import { readCommand, READ_HELP, threadCommand, THREAD_HELP } from "./commands/read.js";
 import { reactionsCommand, REACTIONS_HELP } from "./commands/reactions.js";
@@ -32,8 +33,8 @@ import {
 import { DESCRIPTION, readVersion } from "./meta.js";
 
 export const TOP_HELP = `usage: slack-axi [command] [args] [flags]
-commands[19]:
-  (none)=home, auth, doctor, channels, dms, members, user, read, thread, cite, search, catchup, react, reactions, download, draft, edit, delete, setup
+commands[20]:
+  (none)=home, auth, doctor, channels, dms, members, user, read, thread, cite, search, catchup, react, reactions, download, file, draft, edit, delete, setup
 flags[2]:
   --team <id> (per-command), --help, -v/--version
 examples:
@@ -45,7 +46,9 @@ examples:
   slack-axi react #eng <ts> :eyes:
   slack-axi reactions #eng <ts>
   slack-axi download F0B8Q0DCAA3 --out ./shots
+  slack-axi file F0B8Q0DCAA3       (read a snippet/text file inline)
   slack-axi draft #eng "message"   (then: slack-axi draft send <id>)
+  slack-axi draft #eng "the query:" --snippet ./q.sql --file ./shot.png
   slack-axi edit #eng <ts> "corrected text"   (own message; then: slack-axi draft send <id>)
   slack-axi delete #eng <ts>                  (own message; then: slack-axi draft send <id>)`;
 
@@ -65,6 +68,7 @@ const COMMAND_HELP: Record<string, string> = {
   react: REACT_HELP,
   reactions: REACTIONS_HELP,
   download: DOWNLOAD_HELP,
+  file: FILE_HELP,
   draft: DRAFT_HELP,
   edit: EDIT_HELP,
   delete: DELETE_HELP,
@@ -93,6 +97,7 @@ export async function main(): Promise<void> {
       react: (args) => reactCommand(args),
       reactions: (args) => reactionsCommand(args),
       download: (args) => downloadCommand(args),
+      file: (args) => fileCommand(args),
       draft: (args) => draftCommand(args),
       edit: (args) => editCommand(args),
       delete: (args) => deleteCommand(args),

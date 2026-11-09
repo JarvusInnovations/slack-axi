@@ -34,6 +34,11 @@ slack-axi auth setup            # guided: create a Slack app from a manifest, th
 rotation disabled), walks you through creating + installing the app, then `auth login --token xoxp-…`.
 Run `slack-axi doctor` to verify auth and scope coverage.
 
+**Upgrading:** a release can add a required scope (for example `files:write`, for draft attachments).
+`doctor` and `auth setup` name any missing scope. To add it, open your app at
+<https://api.slack.com/apps>, add the scope under **OAuth & Permissions → User Token Scopes**, and click
+**Reinstall to Workspace**. Slack keeps the same token, so there's no need to run `auth login` again.
+
 ## Commands
 
 ```
@@ -46,13 +51,15 @@ slack-axi read <channel> [--since 7d | --from <d> --to <d>] [--threads ...]  # t
 slack-axi thread <channel> <ts> # one thread, fully
 slack-axi reactions <channel> <ts>  # full reactor roster (read/thread show inline counts)
 slack-axi download <file-id…> [--out <dir>]  # fetch message attachments to disk (read/thread list ids)
+slack-axi file <file-id…> [--full]           # print a snippet's / text file's text inline
 slack-axi read/thread … --full   # untruncated text (help[] names --full whenever text was cut)
-slack-axi search ["<query>"] [--in #c] [--from @u] [--with @u] [--after <d>]  # find a thing (query optional if a filter narrows)
+slack-axi search ["<query>"] [--in #c] [--from @u] [--with @u] [--after <d>] [--full]  # find a thing (query optional if a filter narrows)
 slack-axi catchup [--since 1d] [--match q] [--in ...] [--full]   # scoped multi-channel sweep
 slack-axi catchup --every 1w …  # plan a month+ catch-up as weekly batches
 slack-axi cite <channel> <ts…>  # permalinks + the { channel, ts, permalink } citation shape
 slack-axi react <channel> <ts> :emoji:                  # reactions:write
 slack-axi draft <channel> "<markdown>" [--reply <ts>] [--raw] [--preview]   # prepare a message (does NOT send)
+slack-axi draft <channel> "…" --file <path> --snippet <path>   # attach files / snippets (uploaded at send)
 slack-axi draft send <id>       # the explicit, separate step that posts
 slack-axi edit <channel> <ts> "<markdown>"   # prepare an edit of YOUR OWN message (or: edit <sent-draft-id> "…")
 slack-axi delete <channel> <ts>           # prepare deletion of YOUR OWN message (or: delete <sent-draft-id>)
@@ -66,7 +73,10 @@ contextual `help[]` next steps; errors are structured with actionable suggestion
 
 ### Capabilities
 
-Read + **safe-draft**: full read/search/sweep, plus reactions and message *drafts you approve*. Nothing
+Read + **safe-draft**: full read/search/sweep, plus reactions and message *drafts you approve*. Drafts
+can attach local files (`--file`) and snippets (`--snippet`), pinned when the draft is made and uploaded
+only at `draft send`. Attachments are readable too: `download` saves a file's bytes, and `file` prints a
+snippet's or text file's content inline. Nothing
 posts, changes, or disappears without an explicit `draft send` — `edit`/`delete` prepare drafts too, and
 only for messages the token itself posted (checked against the authed user id, or the bot id for a bot
 token); there is no override.
@@ -106,7 +116,7 @@ bun test             # vitest (time/window math is unit-tested)
 ```
 
 The project is spec-driven — specs in [`specs/`](specs/) are the source of truth; work is tracked as
-plans in [`plans/`](plans/). Requires Node ≥ 20 (built/run with bun; published to run under node).
+plans in [`plans/`](plans/). Requires Node ≥ 22 (built/run with bun; published to run under node).
 
 ## License
 

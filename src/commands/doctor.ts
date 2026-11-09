@@ -3,7 +3,7 @@ import { takeFlag } from "../flags.js";
 import { encodeBlock, joinBlocks, renderHelp, renderList } from "../output.js";
 import { validateToken, webClient } from "../slack/client.js";
 import { toAxiError } from "../slack/errors.js";
-import { missingScopes } from "../slack/scopes.js";
+import { addScopesHelp, missingScopes } from "../slack/scopes.js";
 
 export const DOCTOR_HELP = `usage: slack-axi doctor [--team <id>]
 Checks the active workspace's token, scope coverage, and read access.
@@ -46,9 +46,6 @@ export async function doctorCommand(args: string[]): Promise<string> {
     "workspace",
     `${identity.teamName} (${identity.teamId}) as ${identity.userName ?? identity.userId} (${mode} mode)`,
   );
-  const help =
-    missing.length > 0
-      ? renderHelp([`Add missing scopes via \`slack-axi auth setup\`, then re-install + re-login`])
-      : "";
+  const help = missing.length > 0 ? renderHelp(addScopesHelp(missing)) : "";
   return joinBlocks(header, renderList("checks", checks), help);
 }

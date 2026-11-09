@@ -57,7 +57,7 @@ slack-axi/
     cli.ts                    # runAxiCli({ home, commands, getCommandHelp, resolveContext })
     config.ts                 # XDG paths, team/token/cache helpers, default-team, env resolution
     commands/
-      home.ts  auth.ts  doctor.ts  channels.ts  user.ts  read.ts  search.ts  write.ts  reactions.ts  download.ts  setup.ts
+      home.ts  auth.ts  doctor.ts  channels.ts  user.ts  read.ts  search.ts  write.ts  reactions.ts  download.ts  file.ts  setup.ts
     slack/
       client.ts               # @slack/web-api WebClient factory per team (token injection)
       resolve.ts              # #name|name|id → channel; user id → name (cache-backed, users.info fallback)
@@ -65,7 +65,8 @@ slack-axi/
       time.ts                 # "7d"/"24h"/date → Slack ts; resolved-range formatting (Eastern, year)
       threads.ts              # history+replies merge + inline rendering (carries reaction counts)
       reactions.ts            # reactions.get full=true → complete reactor roster; inline counts summary
-      files.ts                # file metadata off messages + files.info/url_private_download byte fetch
+      files.ts                # file metadata off messages + files.info/url_private_download byte fetch;
+                              # text detection + snippet types; attachment pinning + upload/share
       links.ts                # link-unfurl attachments off messages (title + whole URL)
       mrkdwn.ts               # Markdown → mrkdwn text (human mode); Slack-token protection
       blocks.ts               # Markdown → Block Kit + chunking (bot mode)
@@ -118,4 +119,5 @@ to `AxiError` with actionable suggestions per [behaviors/errors.md](behaviors/er
 ## Out of scope (v1)
 
 Real-time events / socket mode; direct unconfirmed posting; channel/conversation creation; admin APIs;
-file uploads. Canvas/file *reading* may be added later but is not in the initial surface.
+canvases. (File uploads were added later, as draft attachments; see
+[behaviors/files.md](behaviors/files.md).)
