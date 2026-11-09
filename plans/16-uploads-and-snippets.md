@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 depends: [11-file-attachments, 15-mrkdwn-rendering]
 specs:
   - specs/behaviors/files.md
@@ -8,7 +8,11 @@ specs:
   - specs/commands/read.md
   - specs/behaviors/auth-and-workspaces.md
   - specs/architecture.md
+  - specs/commands/auth.md
+  - specs/commands/doctor.md
+  - specs/behaviors/errors.md
 issues: []
+pr: 31
 ---
 
 # 16 — upload attachments, attach snippets, read snippets
@@ -29,7 +33,10 @@ through `getUploadURLExternal` + `completeUploadExternal` carrying the message t
 blocks; polling `files.info` for the shared message's ts; a draft-id `delete` also removing the
 uploaded files; `edit` refusing attachment flags; `files:write` in the required scope set; docs and
 skill. Also fixes the `deleted: " message(s)"` literal in the multi-chunk delete confirmation (it was
-meant to show the count), since this plan reworks that path.
+meant to show the count), since this plan reworks that path. Pulled in while validating: missing-scope
+hints said to log in again (Slack keeps the token across a scope-adding reinstall), and a complete
+`auth setup` never noticed a scope added by a release. Now every hint gives the add-and-reinstall fix,
+and setup checks the live scope gap.
 
 **Out:** attachments on edits (Slack can't change a message's files); stdin or inline-string snippet
 content (write a scratch file); canvases; rendering images in the CLI.
@@ -44,6 +51,8 @@ content (write a scratch file); canvases; rendering images in the CLI.
 - `specs/commands/read.md` — snippet marking + `file` hint.
 - `specs/behaviors/auth-and-workspaces.md` — `files:write`.
 - `specs/architecture.md` — out-of-scope line, module map.
+- `specs/commands/auth.md` — setup's live scope-gap check.
+- `specs/commands/doctor.md`, `specs/behaviors/errors.md` — the add-and-reinstall hint wording.
 
 ## Approach
 
@@ -69,11 +78,12 @@ content (write a scratch file); canvases; rendering images in the CLI.
 
 - [x] `draft #claude-test "…" --file shot.png --snippet q.sql` echoes both attachments with kind and
       size and uploads nothing; `--preview` shows them and writes no draft. (Live, #claude-test.)
-- [ ] `draft send` posts **one** message carrying the text and both files; the confirmation shows the
-      real ts, permalink, and file ids. (Live, #claude-test, human mode.)
-- [ ] The `.sql` attachment shows in Slack as a SQL snippet; `read` shows it as
-      `q.sql (snippet: sql, N lines) [F…]` with a `file` hint in `help[]`. (Marking + hint verified
-      live on an existing CSV snippet, `F04JYHNAQ7J`; the uploaded one awaits `files:write`.)
+- [x] `draft send` posts **one** message carrying the text and both files; the confirmation shows the
+      real ts, permalink, and file ids. (Live, #claude-test, human mode: `1794194096206559`,
+      `F0CFUD00N0M, F0CG1JJGM17`; the share ts came back on the first poll, send took 1.8s.)
+- [x] The `.sql` attachment shows in Slack as a SQL snippet; `read` shows it as
+      `q.sql (snippet: sql, N lines) [F…]` with a `file` hint in `help[]`. (Live: `thread` showed
+      `q.sql (snippet: sql, 4 lines)`, and `file F0CG1JJGM17` printed the three SQL lines verbatim.)
 - [x] `file <id>` prints the snippet's text with `shown: N of N lines`; a >200-line file shows 200 and
       the `--full` hint; `--full` prints all; an image id gives metadata + the `download` pointer.
       (Live: 2875-line CSV snippet → `shown: 200 of 2875 lines` + hint; PNG → binary + `download`;
@@ -82,8 +92,11 @@ content (write a scratch file); canvases; rendering images in the CLI.
       nothing. (Live + unit-tested.)
 - [x] `--snippet` on a binary file → `USAGE`; 11 attachments → `USAGE`; `edit … --file` → `USAGE`.
       (Binary + edit live; all three unit-tested.)
-- [ ] `delete <sent-draft-id>` on the attachment post removes the message and its files.
-- [ ] A reply draft with `--file` lands in the thread.
+- [x] `delete <sent-draft-id>` on the attachment post removes the message and its files. (Live: the
+      echo listed `also_deletes_files: F0CGU39RQGY`; send → `deleted: true, files_deleted: 1`; the
+      reply was gone from the thread and `file F0CGU39RQGY` → `FILE_NOT_FOUND`.)
+- [x] A reply draft with `--file` lands in the thread. (Live: attachment-only binary reply, permalink
+      carried `thread_ts`.)
 - [x] `doctor` reports `files:write` missing until the app is re-installed with it. (Live, Jarvus:
       `scopes,warn,"missing files:write"`; a real `draft send` then fails with `SCOPE_MISSING` naming
       `files:write` and posts nothing.)
@@ -98,6 +111,30 @@ content (write a scratch file); canvases; rendering images in the CLI.
 - **Blocks on `completeUploadExternal`** are documented but less exercised than `chat.postMessage`;
   bot mode falls back to the blocks' text on `invalid_blocks`.
 
+- [x] `auth setup` on a complete setup reports a missing required scope with the add-and-reinstall
+      fix; with every scope granted it reports plain `complete`. (Live on Jarvus, with a fake required
+      scope added temporarily for the gap case.)
+
 ## Notes
 
+- **Slack makes text uploads snippets on its own.** A `.json` sent with `--file` came back as
+  `mode: snippet`, type `json`. For text files the flags differ only in who picks the syntax type;
+  `--snippet` still matters for an exact type and for refusing binaries. Recorded in `files.md`.
+- **Adding a scope keeps the token.** Chris added `files:write` and reinstalled the app; `doctor` went
+  green with no new `auth login`, because granted scopes are read live from `auth.test`. The old
+  "re-install + re-login" hints were wrong, and `auth setup` said `complete` with a scope missing. Both
+  fixed here (see Scope).
+- **Line counts differ by one.** Slack's `lines` counts a trailing newline as a line (`4` for a
+  three-line file), so the `files` column can read one higher than `file`'s `shown: N of M`, which
+  counts actual lines. Left as is: the column shows Slack's number, and `file` shows the true count.
+- **The share ts arrived on the first `files.info` poll** in both live sends; `ts: pending` and the
+  `SHARE_PENDING` path are unit-reasoned, not observed live.
+- Bot-mode attachment sends (blocks on `completeUploadExternal`, `invalid_blocks` fallback) were not
+  exercised live; there is no `xoxb` token at hand, same gap as plan 15 (Issue #26 covers the fake
+  client that would test `draftSend`).
+
 ## Follow-ups
+
+- Tracked as: Issue [#26](https://github.com/JarvusInnovations/slack-axi/issues/26) — the fake-client
+  `draftSend` tests should also cover the attachment path (pending share ts, bot-mode blocks,
+  `invalid_blocks` fallback).
