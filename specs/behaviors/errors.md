@@ -38,6 +38,14 @@ argument is itself a `--` flag. The command never ignores the flag, and never ta
 its value. Silently dropping `--reply` would post a thread reply to the channel instead, and taking
 `--preview` as a value would turn a preview into a real draft.
 
+### Free text that starts with a dash
+
+Free-text arguments (`draft` and `edit` text, the `search` query) may begin with `-`: Markdown list
+items (`- api ok`), rules (`---`), negative numbers, and Slack's `-word` search exclusions are text,
+never flags. Only an argument shaped like a long flag (`--` followed by a letter) is a flag. If it isn't
+one the command knows, the result is a `USAGE` error naming it (`unknown flag --tema`). It is never
+silently dropped and never sent as text.
+
 ### Rate limiting
 
 `@slack/web-api` handles tiered rate-limit retry with backoff automatically. slack-axi surfaces a
