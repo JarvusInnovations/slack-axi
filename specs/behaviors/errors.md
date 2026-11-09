@@ -18,7 +18,7 @@ framework (`AxiError`, `exitCodeForError`).
 | Slack error | AxiError code | Suggestion |
 | --- | --- | --- |
 | `invalid_auth` / `token_revoked` / `account_inactive` | `AUTH_INVALID` | `Run 'slack-axi auth login --team <id>' to re-store a valid token` |
-| `missing_scope` (needed vs. granted) | `SCOPE_MISSING` | `Token lacks scope '<x>'. Re-run 'slack-axi auth setup' and add it, then re-install the app` |
+| `missing_scope` (needed vs. granted) | `SCOPE_MISSING` | `Token lacks scope '<x>'`; help: add it under the app's User Token Scopes and reinstall (same token, no new login) |
 | `channel_not_found` | `CHANNEL_NOT_FOUND` | `Run 'slack-axi channels' to list yours, or 'slack-axi search channels <q>'` + fuzzy matches |
 | `not_in_channel` | `NOT_IN_CHANNEL` | `You're not a member of <channel>; join it in Slack or use 'slack-axi channels --all' to confirm the id` |
 | `thread_not_found` / `message_not_found` | `MESSAGE_NOT_FOUND` | `Check the ts; run 'slack-axi read <channel>' to find the message` |

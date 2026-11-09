@@ -1,16 +1,18 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   deleteCommand,
   describeOutgoing,
+  draftCommand,
   draftKind,
   draftStatus,
   editCommand,
   firstLine,
   isOwnMessage,
   renderOutgoing,
+  takeAttachments,
 } from "../src/commands/write.js";
 import { writeDraft } from "../src/config.js";
 import type { Session } from "../src/session.js";
@@ -109,6 +111,31 @@ describe("edit/delete validation happens before any network call", () => {
     });
     await expect(deleteCommand(["d_0badcafe"])).rejects.toMatchObject({ code: "DRAFT_NOT_SENT" });
   });
+  it("edit/delete refuse attachment flags before any network call", async () => {
+    await expect(
+      editCommand(["#eng", "1717589640123456", "new", "--file", "a.png"]),
+    ).rejects.toMatchObject({ code: "USAGE" });
+    await expect(
+      deleteCommand(["#eng", "1717589640123456", "--snippet", "q.sql"]),
+    ).rejects.toMatchObject({ code: "USAGE" });
+  });
+  it("draft with a missing attachment path fails before auth", async () => {
+    await expect(
+      draftCommand(["#eng", "hi", "--file", join(dir, "missing.png")]),
+    ).rejects.toMatchObject({ code: "USAGE" });
+  });
+  it("draft with more than 10 attachments fails before auth", async () => {
+    const args = ["#eng"];
+    for (let i = 0; i < 11; i++) args.push("--file", `f${i}.png`);
+    await expect(draftCommand(args)).rejects.toMatchObject({ code: "USAGE" });
+  });
+  it("an attachment-only draft clears validation and stops at auth (NO_TOKEN)", async () => {
+    const p = join(dir, "q.sql");
+    writeFileSync(p, "SELECT 1;\n");
+    await expect(draftCommand(["#eng", "--snippet", p])).rejects.toMatchObject({
+      code: "NO_TOKEN",
+    });
+  });
   it("--help documents the ownership rule", async () => {
     expect(await editCommand(["--help"])).toContain("OWN messages");
     expect(await deleteCommand(["--help"])).toContain("OWN messages");
@@ -179,5 +206,39 @@ describe("renderOutgoing / describeOutgoing", () => {
       raw: true,
       text: "*already mrkdwn*",
     });
+  });
+});
+
+describe("takeAttachments", () => {
+  it("collects --file/--snippet in order and leaves the rest", () => {
+    expect(
+      takeAttachments([
+        "#eng",
+        "--file",
+        "a.png",
+        "hi",
+        "--snippet",
+        "q.sql",
+        "--raw",
+        "--file",
+        "b.pdf",
+      ]),
+    ).toEqual({
+      requested: [
+        { kind: "file", path: "a.png" },
+        { kind: "snippet", path: "q.sql" },
+        { kind: "file", path: "b.pdf" },
+      ],
+      rest: ["#eng", "hi", "--raw"],
+    });
+  });
+  it("refuses an attachment flag with no path instead of dropping it", () => {
+    expect(() => takeAttachments(["#eng", "hi", "--file"])).toThrow(/--file needs a path/);
+    expect(() => takeAttachments(["#eng", "--snippet"])).toThrow(/--snippet needs a path/);
+  });
+  it("refuses to swallow the next flag as a path", () => {
+    expect(() => takeAttachments(["#eng", "hi", "--file", "--preview"])).toThrow(
+      /--file needs a path/,
+    );
   });
 });

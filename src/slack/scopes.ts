@@ -15,8 +15,8 @@ export const READ_SCOPES = [
   "files:read",
 ] as const;
 
-/** Scopes needed for reactions + drafts (read + safe-draft capability set). */
-export const WRITE_SCOPES = ["reactions:write", "chat:write"] as const;
+/** Scopes needed for reactions + drafts, including draft attachments (`files:write`). */
+export const WRITE_SCOPES = ["reactions:write", "chat:write", "files:write"] as const;
 
 export const REQUIRED_SCOPES: string[] = [...READ_SCOPES, ...WRITE_SCOPES];
 
@@ -24,4 +24,17 @@ export const REQUIRED_SCOPES: string[] = [...READ_SCOPES, ...WRITE_SCOPES];
 export function missingScopes(granted: string[]): string[] {
   const have = new Set(granted);
   return REQUIRED_SCOPES.filter((scope) => !have.has(scope));
+}
+
+/**
+ * The fix for missing scopes on an app that already exists: add them to the app's User Token Scopes
+ * and reinstall it. Slack keeps the same token across a scope-adding reinstall, so no `auth login` is
+ * needed — granted scopes are read live from `auth.test`. See specs/behaviors/auth-and-workspaces.md.
+ */
+export function addScopesHelp(missing: readonly string[]): string[] {
+  const list = missing.length > 0 ? missing.map((s) => `\`${s}\``).join(", ") : "the missing scope";
+  return [
+    `Add ${list} under User Token Scopes on the app's OAuth & Permissions page (https://api.slack.com/apps), then click Reinstall to Workspace`,
+    "The token stays the same, so there is no need to log in again; re-run `slack-axi doctor` to confirm",
+  ];
 }
