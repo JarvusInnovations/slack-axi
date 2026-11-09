@@ -94,7 +94,8 @@ unchanged (same id handle, same `download`). On top of that:
 - Slack does not return the shared message's `ts` from `completeUploadExternal`. `draft send` polls
   `files.info` for the file's share in the target channel (up to about 10 seconds) to learn it. If the
   share never shows up, the send still succeeds and reports the uploaded file ids with
-  `ts: pending`; the draft records the ids so a later `delete <draft-id>` can still remove the files.
+  `ts: pending`. A later `edit`/`delete <draft-id>` looks the share up again (and records it); if Slack
+  still hasn't reported it, the command fails with `SHARE_PENDING` and asks to retry shortly.
 - Deleting a sent attachment post by its **draft id** removes the message **and** the files the draft
   uploaded (`files.delete`): the agent asked to take back what it posted, and an orphaned file would
   stay visible in the channel's file list. Deleting by `<channel> <ts>` removes the message only.
