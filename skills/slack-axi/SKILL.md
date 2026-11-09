@@ -39,7 +39,8 @@ arguments accept `#name`, bare `name`, or an id (`C…`/`G…`/`D…`) interchan
 - `read`/`thread` show a counts-only `reactions` column (`:emoji:×N`) when any message in view has
   reactions — free, already in the data. For **who** reacted, use the `reactions` command below.
 - `read`/`thread` also show a `files` column when a message has attachments — `name (type, size) [F-id]`,
-  free from the same payload. Use the `F-id` with `download` to fetch the bytes.
+  free from the same payload. Use the `F-id` with `download` to fetch the bytes. A snippet shows as
+  `q.sql (snippet: sql, 42 lines) [F-id]`; read its text with `file <F-id>`.
 - `read`/`thread` show a `links` column when a message carries a link unfurl — `title <url>`, URL always
   whole. URLs in message text are never cut by truncation, and `<url|label>` links render as
   `label (url)` so the href is always recoverable.
@@ -52,6 +53,9 @@ arguments accept `#name`, bare `name`, or an id (`C…`/`G…`/`D…`) interchan
   `read`/`thread` files column) to local files; prints the saved absolute paths so you can open them
   (e.g. to view a screenshot). Read-only against Slack; needs the `files:read` scope. Downloading is
   explicit — reading a thread lists attachments but never fetches their bytes on its own.
+- `npx -y slack-axi file <file-id…> [--full]` — print a snippet's or text file's text inline (first 200
+  lines; `shown: N of M lines` says if it was cut; `--full` for all). Binary files show metadata only and
+  point at `download`. Needs `files:read`.
 
 ## Reactions (who reacted)
 
@@ -89,6 +93,11 @@ Read/search rows carry a compact `ts` handle, not a full permalink. To turn hand
 - `npx -y slack-axi react <channel> <ts> :emoji:` — add a reaction (idempotent).
 - `npx -y slack-axi draft <channel> "<text>" [--reply <ts>]` — prepare a message; it is NOT sent.
   Review the echoed draft, then `npx -y slack-axi draft send <id>` posts it.
+- Attach local files with `--file <path>` and code/text as a snippet with `--snippet <path>` (syntax type
+  from the extension); both repeat, up to 10, and the text becomes optional. Nothing uploads until
+  `draft send`, and the send refuses (`ATTACHMENT_CHANGED`) if a file changed since the draft. For
+  inline code you don't have on disk, write it to a scratch file first. `edit` can't change attachments;
+  `delete <sent-draft-id>` removes the message and the files it uploaded. Needs `files:write`.
 - **Write Markdown.** It is rendered for the workspace mode (`npx -y slack-axi auth mode` shows/sets it):
   `human` (user token) → mrkdwn text; `bot` (bot token) → Block Kit, chunked. `**bold**` → `*bold*`, a
   single `*x*` is italic, `# H` → bold line, `- x` → `• x`, `[t](u)` → `<u|t>`. Hand-written `<@U…>`,
