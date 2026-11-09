@@ -78,6 +78,11 @@ unchanged (same id handle, same `download`). On top of that:
   attaches a local text file as a **snippet**. Both repeat and mix; the message text is optional when
   at least one attachment is given. All attachments land on **one** message, the message carrying the
   text (in bot mode: the first chunk). At most **10** attachments per draft (Slack's per-message limit).
+- Slack itself turns most **text** uploads into snippets, even ones sent with `--file` (verified live:
+  a `.json` sent with `--file` came back with `mode: snippet`, type `json`). So for a text file the
+  two flags differ only in who picks the syntax type: `--snippet` sets it from the extension and refuses
+  binaries; `--file` leaves it to Slack's detection. A text file cannot be forced to stay a plain
+  attachment.
 - A snippet's syntax type comes from its file extension (`.py` → `python`, `.ts` → `typescript`,
   `.sql` → `sql`, `.json` → `json`, `.sh` → `shell`, `.md` → `markdown`, `.yml`/`.yaml` → `yaml`, …);
   an unknown extension is `text`. A file passed to `--snippet` must be text (no NUL bytes); a binary
