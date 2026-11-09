@@ -10,7 +10,7 @@ import {
   removeDraft,
   writeDraft,
 } from "../config.js";
-import { takeBool, takeFlag } from "../flags.js";
+import { isLongFlag, takeBool, takeFlag, textArgs } from "../flags.js";
 import { encodeObject, joinBlocks, renderHelp, renderList, truncate } from "../output.js";
 import {
   activeSession,
@@ -179,7 +179,7 @@ export function takeAttachments(args: string[]): {
       const path = args[i + 1];
       // Fail loud: a dropped attachment flag would send a message without the file the agent meant
       // to attach, and a swallowed `--preview` would turn a preview into a real draft.
-      if (path === undefined || path.startsWith("--")) {
+      if (path === undefined || isLongFlag(path)) {
         throw new AxiError(`${a} needs a path`, "USAGE", [`Pass it as \`${a} <path>\``]);
       }
       requested.push({ kind: a === "--file" ? "file" : "snippet", path });
@@ -386,7 +386,8 @@ async function resolveTarget(
   takesText: boolean,
 ): Promise<{ target: Target; text: string }> {
   const team = takeFlag(args, "--team");
-  const positional = team.rest.filter((a) => !a.startsWith("-"));
+  // Dash-led text (`- item`, `---`) is text; only an unknown `--flag` is refused. See errors.md.
+  const positional = textArgs(team.rest);
   if (positional.length === 0) throw new AxiError(usage, "USAGE", []);
 
   let session: Session;
@@ -521,7 +522,8 @@ async function draftCreate(args: string[]): Promise<string> {
   const attach = takeAttachments(reply.rest);
   const raw = takeBool(attach.rest, "--raw");
   const preview = takeBool(raw.rest, "--preview");
-  const positional = preview.rest.filter((a) => !a.startsWith("-"));
+  // Dash-led text (`- item`, `---`) is text; only an unknown `--flag` is refused. See errors.md.
+  const positional = textArgs(preview.rest);
   const channelArg = positional[0];
   const markdown = positional.slice(1).join(" ");
   if (!channelArg || (!markdown && attach.requested.length === 0)) {

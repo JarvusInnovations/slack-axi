@@ -24,10 +24,8 @@ describe("takeFlags (repeatable)", () => {
     expect(r.values).toEqual([]);
     expect(r.rest).toEqual(["--in", "#eng"]);
   });
-  it("ignores a trailing flag with no value", () => {
-    const r = takeFlags(["--has"], "--has");
-    expect(r.values).toEqual([]);
-    expect(r.rest).toEqual(["--has"]);
+  it("refuses a trailing flag with no value instead of ignoring it", () => {
+    expect(() => takeFlags(["--has"], "--has")).toThrow(/--has needs a value/);
   });
 });
 
