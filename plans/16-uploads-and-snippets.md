@@ -67,21 +67,27 @@ content (write a scratch file); canvases; rendering images in the CLI.
 
 ## Validation
 
-- [ ] `draft #claude-test "…" --file shot.png --snippet q.sql` echoes both attachments with kind and
-      size and uploads nothing; `--preview` shows them and writes no draft.
+- [x] `draft #claude-test "…" --file shot.png --snippet q.sql` echoes both attachments with kind and
+      size and uploads nothing; `--preview` shows them and writes no draft. (Live, #claude-test.)
 - [ ] `draft send` posts **one** message carrying the text and both files; the confirmation shows the
       real ts, permalink, and file ids. (Live, #claude-test, human mode.)
 - [ ] The `.sql` attachment shows in Slack as a SQL snippet; `read` shows it as
-      `q.sql (snippet: sql, N lines) [F…]` with a `file` hint in `help[]`.
-- [ ] `file <id>` prints the snippet's text with `shown: N of N lines`; a >200-line file shows 200 and
+      `q.sql (snippet: sql, N lines) [F…]` with a `file` hint in `help[]`. (Marking + hint verified
+      live on an existing CSV snippet, `F04JYHNAQ7J`; the uploaded one awaits `files:write`.)
+- [x] `file <id>` prints the snippet's text with `shown: N of N lines`; a >200-line file shows 200 and
       the `--full` hint; `--full` prints all; an image id gives metadata + the `download` pointer.
-- [ ] Changing a file after `draft` makes `draft send` fail with `ATTACHMENT_CHANGED` and upload
-      nothing.
-- [ ] `--snippet` on a binary file → `USAGE`; 11 attachments → `USAGE`; `edit … --file` → `USAGE`.
+      (Live: 2875-line CSV snippet → `shown: 200 of 2875 lines` + hint; PNG → binary + `download`;
+      bogus id → `Failed: … (FILE_NOT_FOUND)`. Short-file and `--full` paths unit-tested.)
+- [x] Changing a file after `draft` makes `draft send` fail with `ATTACHMENT_CHANGED` and upload
+      nothing. (Live + unit-tested.)
+- [x] `--snippet` on a binary file → `USAGE`; 11 attachments → `USAGE`; `edit … --file` → `USAGE`.
+      (Binary + edit live; all three unit-tested.)
 - [ ] `delete <sent-draft-id>` on the attachment post removes the message and its files.
 - [ ] A reply draft with `--file` lands in the thread.
-- [ ] `doctor` reports `files:write` missing until the app is re-installed with it.
-- [ ] `bun run test`, `typecheck`, `lint`, `format:check`, `build` clean.
+- [x] `doctor` reports `files:write` missing until the app is re-installed with it. (Live, Jarvus:
+      `scopes,warn,"missing files:write"`; a real `draft send` then fails with `SCOPE_MISSING` naming
+      `files:write` and posts nothing.)
+- [x] `bun run test` (151 pass), `typecheck`, `lint`, `format:check`, `build` clean.
 
 ## Risks / unknowns
 
