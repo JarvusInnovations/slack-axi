@@ -24,6 +24,7 @@ specs/
     user.md          # user <id|@handle> lookup (external/guest resolution)
     read.md          # read <channel> + thread <channel> <ts>
     download.md      # download <file-id...> — fetch attachment bytes to disk
+    file.md          # file <file-id...> — metadata + text of snippets/text files, inline
     search.md        # search.messages
     cite.md          # reconstruct permalinks / HQ sources from ts handles
     write.md         # react / draft / draft send
@@ -33,7 +34,7 @@ specs/
     time-and-completeness.md   # human time in, resolved-range echo, pagination-to-completion
     resolution-and-caching.md  # #name|id channels, user-id→name, local caches
     threads.md             # inlining replies under parents
-    files.md               # attachments surfaced inline; download bytes to disk
+    files.md               # attachments surfaced inline; download bytes; read snippets; upload via drafts
     links.md               # URLs never cut; link-unfurl attachments surfaced inline
     mrkdwn.md              # outgoing Markdown → mrkdwn text (human) or Block Kit (bot)
     permalinks.md          # ready-to-use permalink on every message

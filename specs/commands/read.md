@@ -86,8 +86,10 @@ help[1]:
   across rows, empty for messages with none) listing each file as `name (filetype, size) [F-id]`. This
   rides on the history/replies payload already fetched — no extra call and no `files:read` scope to
   *see* the attachment. The `F-id` is the handle for `slack-axi download <file-id…>`, which fetches the
-  bytes to a local path. An inaccessible/tombstoned file is shown as `(unavailable) [F-id]`. See
-  [files.md](../behaviors/files.md). `thread` carries the same column.
+  bytes to a local path. An inaccessible/tombstoned file is shown as `(unavailable) [F-id]`. A snippet
+  is shown as `name (snippet: <type>, N lines) [F-id]`, and when one is in view `help[]` points at
+  `slack-axi file <file-id…>` to read its text. See [files.md](../behaviors/files.md). `thread` carries
+  the same column.
 - **Links, inline:** when any message in the view has a link-unfurl attachment, a `links` column is
   added (uniform across rows, empty for messages with none) listing each as `title <url>` with the URL
   always whole. Same free payload as files. See [links.md](../behaviors/links.md). `thread` carries the

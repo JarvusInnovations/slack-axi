@@ -21,10 +21,12 @@ even where the token's scopes would technically allow it.
 Adds a reaction (`reactions.write`). Idempotent — already present → `no-op`, exit 0 (see
 [errors.md](../behaviors/errors.md)). Returns a confirmation object (no `help[]`).
 
-### `draft <channel> "<text>" [--reply <ts>] [--raw] [--preview]`
+### `draft <channel> ["<text>"] [--reply <ts>] [--file <path>]… [--snippet <path>]… [--raw] [--preview]`
 
 Creates a **draft** and returns it for approval. Does **not** send. `--reply <ts>` makes it a threaded
-draft. The text is **Markdown** and is rendered at preparation time into the workspace mode's Slack
+draft. `--file <path>` attaches a local file and `--snippet <path>` attaches a local text file as a
+snippet; both repeat, and the text may be omitted when an attachment is given. Attaching uploads
+nothing until `draft send` — see [files.md → Uploading](../behaviors/files.md#uploading-requires-fileswrite). The text is **Markdown** and is rendered at preparation time into the workspace mode's Slack
 dialect — mrkdwn text in human mode, Block Kit in bot mode — per
 [mrkdwn.md](../behaviors/mrkdwn.md). `--raw` skips rendering (text sent verbatim); `--preview` prints
 the rendering and writes nothing. The draft is persisted with an id and echoed back in full (the
@@ -44,6 +46,14 @@ help[1]:
 In bot mode the echo shows `blocks: 7 in 1 chunk(s)` with each chunk's block types and the `text`
 fallback instead of the rendered text.
 
+A draft with attachments adds an `attachments` list (also under `--preview`):
+
+```
+attachments[2]{name,kind,size,path}:
+  error.png,file,158KB,/home/me/shots/error.png
+  query.sql,snippet (sql),2KB,/home/me/work/query.sql
+```
+
 ### `edit <channel> <ts> "<text>" [--raw] [--preview]` / `edit <sent-draft-id> "<text>"`
 
 Prepares an **edit** of one of the token's own messages, as a draft of kind `edit`. Does **not**
@@ -51,7 +61,8 @@ change anything in Slack. The target is a channel + `ts` handle (dotless or dott
 draft this tool already sent (its recorded channel + ts are the target — "fix what I just said"
 without hunting for the ts). The new text is Markdown and is rendered exactly as `draft` renders
 (`--raw`/`--preview` behave the same); a bot-mode edit whose rendering needs more than one chunk is
-refused with `TOO_LONG_FOR_EDIT`.
+refused with `TOO_LONG_FOR_EDIT`. `--file`/`--snippet` are refused with `USAGE`: Slack cannot change
+a message's files in an edit.
 
 Before the draft is written, the target message is fetched and the ownership rule above is applied.
 A message by anyone else → error `NOT_MESSAGE_AUTHOR`, naming who did post it, exit 1. A ts that
@@ -75,7 +86,9 @@ help[1]:
 
 Prepares a **deletion** of one of the token's own messages, as a draft of kind `delete`. Same target
 forms and the same ownership check as `edit`; the draft echoes the message text that would be
-removed (`old`). Does **not** delete anything until `draft send`.
+removed (`old`). Targeting a sent attachment post by its draft id also deletes the files that draft
+uploaded (the echo lists them under `also_deletes_files`); targeting by `<channel> <ts>` removes the
+message only. Does **not** delete anything until `draft send`.
 
 ### `draft send <draft-id>`
 
@@ -85,6 +98,11 @@ Returns the affected message's ts + permalink (a deletion returns the ts and `de
 Idempotent — an already-applied draft acknowledges the prior application, exit 0; deleting a message
 that is already gone is reported as a no-op, exit 0. Subject to multi-workspace write-protection (see
 [auth-and-workspaces.md](../behaviors/auth-and-workspaces.md)).
+
+A post with attachments is sent by uploading the files and sharing them with the message in one
+step; the reviewed bytes are checked first (`ATTACHMENT_CHANGED` if a file changed or vanished since
+the draft). The confirmation adds `files` (the uploaded ids). If Slack has not yet reported the shared
+message, `ts` is `pending` — see [files.md → Uploading](../behaviors/files.md#uploading-requires-fileswrite).
 
 A post in bot mode may span several messages (one per chunk — see
 [mrkdwn.md](../behaviors/mrkdwn.md)); the confirmation lists every ts, and the draft records them all.
@@ -101,14 +119,18 @@ List pending drafts; discard one. The list shows each draft's kind (`post`, `edi
 status. Drafts are stored locally as `~/.config/slack-axi/drafts/<id>.json` (each records its `team`,
 so `draft send` acts on the workspace the draft was created against, which also satisfies
 multi-workspace write-protection). A draft record carries `kind` (absent means `post`), the Markdown
-`markdown` source and its rendering (`text`, plus `blocks` in bot mode, or `raw: true`), and for
+`markdown` source and its rendering (`text`, plus `blocks` in bot mode, or `raw: true`), any
+`attachments` (absolute path, name, size, SHA-256, and snippet type for snippets; the uploaded file ids
+are added under `sent.files` once sent), and for
 `edit`/`delete` the `target_ts` and the `previous_text` captured at preparation time. `draft send`
 marks the draft `sent` (with the affected ts + permalink) rather than deleting it, so re-sending is an
 idempotent no-op.
 
 ## Data Requirements
 
-`reactions.add`, `chat.postMessage`, `chat.update`, `chat.delete`; `conversations.history` /
+`reactions.add`, `chat.postMessage`, `chat.update`, `chat.delete`; for attachments
+`files.getUploadURLExternal` + `files.completeUploadExternal` (scope `files:write`), `files.info` to
+find the shared message, and `files.delete` when a draft-id delete removes its uploads; `conversations.history` /
 `conversations.replies` to fetch an edit/delete target for the ownership check (a reply's ts is not
 returned by `history`, so a miss there is retried via `replies`); `auth.test` once per token to learn
 the identity (`user_id`, `bot_id`). `chat:write` covers update/delete of the token's own messages.
