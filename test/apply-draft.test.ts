@@ -131,6 +131,56 @@ describe("applyDraft — plain and chunked posts", () => {
   });
 });
 
+describe("applyDraft — edits and idempotency", () => {
+  it("edits with chat.update, clearing blocks in human mode, and confirms the new first line", async () => {
+    const { session, calls } = fakeSession({});
+    const draft = baseDraft({
+      kind: "edit",
+      target_ts: "1700000000.000009",
+      markdown: "\nfixed **wording**\nmore",
+      text: "fixed *wording*\nmore",
+    });
+    const out = await applyDraft(session, draft);
+    const updates = calls.filter((c) => c.method === "chat.update");
+    expect(updates).toHaveLength(1);
+    expect(updates[0].args).toEqual({
+      channel: "C1",
+      ts: "1700000000.000009",
+      text: "fixed *wording*\nmore",
+      blocks: [],
+    });
+    expect(calls.some((c) => c.method === "chat.postMessage")).toBe(false);
+    expect(out).toContain("applied: d_0000abcd");
+    expect(out).toContain("text: fixed **wording**");
+    expect(getDraft(draft.id)?.sent?.ts).toBe("1700000000.000009");
+  });
+
+  it("sends a bot-mode edit's single chunk as the blocks", async () => {
+    const { session, calls } = fakeSession({});
+    await applyDraft(
+      session,
+      baseDraft({ kind: "edit", target_ts: "1.2", blocks: [[section("new")]] }),
+    );
+    expect(calls.find((c) => c.method === "chat.update")?.args.blocks).toEqual([section("new")]);
+  });
+
+  it("maps edit_window_closed and records nothing", async () => {
+    const { session } = fakeSession({ fail: { "chat.update": () => "edit_window_closed" } });
+    await expect(
+      applyDraft(session, baseDraft({ kind: "edit", target_ts: "1.2" })),
+    ).rejects.toMatchObject({ code: "EDIT_WINDOW_CLOSED" });
+    expect(getDraft("d_0000abcd")).toBeUndefined();
+  });
+
+  it("is a no-op for an already-sent draft: no client calls", async () => {
+    const { session, calls } = fakeSession({});
+    const sent = baseDraft({ sent: { ts: "1.2", permalink: "https://x/p12", at: "t" } });
+    const out = await applyDraft(session, sent);
+    expect(calls).toHaveLength(0);
+    expect(out).toContain("already sent (no-op)");
+  });
+});
+
 describe("applyDraft — attachments", () => {
   function pinned(name: string, body: string, kind: "file" | "snippet" = "file") {
     const path = join(dir, name);

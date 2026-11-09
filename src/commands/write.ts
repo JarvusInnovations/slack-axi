@@ -603,16 +603,7 @@ async function draftSend(args: string[]): Promise<string> {
       "Run `slack-axi draft list` to see pending drafts",
     ]);
   }
-  const kind = draftKind(draft);
-  if (draft.sent) {
-    return encodeObject({
-      [kind === "post" ? "sent" : "applied"]:
-        `${id} already ${kind === "post" ? "sent" : "applied"} (no-op)`,
-      kind,
-      ts: handle(draft.sent.ts),
-      ...(draft.sent.permalink ? { permalink: draft.sent.permalink } : {}),
-    });
-  }
+  if (draft.sent) return alreadyApplied(draft);
   if (!getStoredToken(draft.team) && !process.env.SLACK_AXI_TOKEN) {
     throw new AxiError(
       `Draft's workspace ${draft.team} is no longer authenticated`,
@@ -624,6 +615,18 @@ async function draftSend(args: string[]): Promise<string> {
   // Act on the draft's own workspace (explicit team satisfies write-protection).
   const session = await activeSession({ teamFlag: draft.team, mutation: true });
   return applyDraft(session, draft);
+}
+
+/** The no-op confirmation for a draft that was already sent/applied (exit 0, nothing re-posted). */
+function alreadyApplied(draft: Draft): string {
+  const kind = draftKind(draft);
+  const verb = kind === "post" ? "sent" : "applied";
+  return encodeObject({
+    [verb]: `${draft.id} already ${verb} (no-op)`,
+    kind,
+    ts: draft.sent?.ts ? handle(draft.sent.ts) : "pending",
+    ...(draft.sent?.permalink ? { permalink: draft.sent.permalink } : {}),
+  });
 }
 
 /** Tunables for `applyDraft`; tests shorten the share-ts poll. */
@@ -642,6 +645,8 @@ export async function applyDraft(
   draft: Draft,
   options: ApplyOptions = {},
 ): Promise<string> {
+  // Idempotent on its own, not just via draftSend: a sent draft is never re-applied.
+  if (draft.sent) return alreadyApplied(draft);
   const id = draft.id;
   const kind = draftKind(draft);
   const channel = `${draft.channel} (${draft.channel_id})`;
