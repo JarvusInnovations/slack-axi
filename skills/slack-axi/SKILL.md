@@ -1,6 +1,6 @@
 ---
 name: slack-axi
-description: Read, search, and cite Slack from the shell. Use when asked to read or summarize a Slack channel, find a discussion across Slack, look up private channels / group DMs / DMs, read a channel over a date range, follow a thread, or produce permalink citations for Slack messages. Token-efficient TOON output; human date ranges in, permalinks out.
+description: Read, search, cite, and draft Slack from the shell. Use when asked to read or summarize a Slack channel, find a discussion across Slack, look up private channels / group DMs / DMs, read a channel over a date range, follow a thread, produce permalink citations, view or download a file or code snippet shared in Slack, or draft a message (optionally with attached files or snippets) for approval before posting. Token-efficient TOON output; human date ranges in, permalinks out.
 ---
 
 # slack-axi
@@ -85,6 +85,9 @@ Read/search rows carry a compact `ts` handle, not a full permalink. To turn hand
 
 - `npx -y slack-axi auth setup` — generates an app manifest (all scopes pre-filled, token rotation off)
   and walks you through creating + installing a Slack app, then `auth login --token xoxp-…`.
+- After an upgrade that adds a required scope, `doctor` and `auth setup` name the missing scope. The fix
+  is a human step: add the scope under the app's OAuth & Permissions → User Token Scopes, then click
+  Reinstall to Workspace. The token stays the same, so don't ask for a new one or re-run `auth login`.
 - `npx -y slack-axi setup hooks` — install a SessionStart hook so each agent session starts with the
   slack-axi home view as ambient context.
 

@@ -34,6 +34,11 @@ slack-axi auth setup            # guided: create a Slack app from a manifest, th
 rotation disabled), walks you through creating + installing the app, then `auth login --token xoxp-…`.
 Run `slack-axi doctor` to verify auth and scope coverage.
 
+**Upgrading:** a release can add a required scope (for example `files:write`, for draft attachments).
+`doctor` and `auth setup` name any missing scope. To add it, open your app at
+<https://api.slack.com/apps>, add the scope under **OAuth & Permissions → User Token Scopes**, and click
+**Reinstall to Workspace**. Slack keeps the same token, so there's no need to run `auth login` again.
+
 ## Commands
 
 ```
@@ -68,7 +73,10 @@ contextual `help[]` next steps; errors are structured with actionable suggestion
 
 ### Capabilities
 
-Read + **safe-draft**: full read/search/sweep, plus reactions and message *drafts you approve*. Nothing
+Read + **safe-draft**: full read/search/sweep, plus reactions and message *drafts you approve*. Drafts
+can attach local files (`--file`) and snippets (`--snippet`), pinned when the draft is made and uploaded
+only at `draft send`. Attachments are readable too: `download` saves a file's bytes, and `file` prints a
+snippet's or text file's content inline. Nothing
 posts, changes, or disappears without an explicit `draft send` — `edit`/`delete` prepare drafts too, and
 only for messages the token itself posted (checked against the authed user id, or the bot id for a bot
 token); there is no override.
