@@ -57,7 +57,10 @@ unchanged (same id handle, same `download`). On top of that:
 
 - The `files` summary marks it: `query.sql (snippet: sql, 42 lines) [F-id]` in place of the
   `(filetype, size)` meta. The syntax type is the file's `filetype`; the line count is the payload's
-  `lines` field and is omitted when absent.
+  `lines` field and is omitted when absent. Slack's `lines` counts a trailing newline as one more
+  line, so it can read one higher than `file`'s `shown: N of M`, which counts the actual lines. The
+  column shows Slack's number as-is: correcting it would mean fetching every snippet's bytes during a
+  read, and discovery stays free.
 - When any file in a `read`/`thread` view is a snippet, `help[]` points at `file <file-id…>` to read it.
 
 ### Reading text inline (`file`, requires `files:read`)
