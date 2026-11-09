@@ -27,7 +27,7 @@ import {
 } from "../auth/setup.js";
 import { validateToken } from "../slack/client.js";
 import { toAxiError } from "../slack/errors.js";
-import { missingScopes } from "../slack/scopes.js";
+import { addScopesHelp, missingScopes } from "../slack/scopes.js";
 
 export const AUTH_HELP = `usage: slack-axi auth <subcommand> [flags]
 subcommands[6]:
@@ -59,7 +59,7 @@ export async function authCommand(args: string[]): Promise<string> {
 
   switch (sub) {
     case "setup":
-      return setup(rest);
+      return await setup(rest);
     case "login":
       return login(rest);
     case "workspaces":
@@ -133,7 +133,27 @@ function mode(args: string[]): string {
   return encodeBlock("mode", { workspace, mode: value, source: "set with `auth mode`" });
 }
 
-function setup(args: string[]): string {
+/**
+ * Granted-scope gap for the active workspace, checked live via `auth.test` (Slack keeps the token
+ * across a scope-adding reinstall, so stored scopes go stale). Undefined when no token resolves or the
+ * check fails — setup must not fail on a network hiccup.
+ */
+async function liveScopeGap(
+  teamFlag?: string,
+): Promise<{ team: string; missing: string[] } | undefined> {
+  try {
+    const active = resolveActiveToken({ teamFlag });
+    const identity = await validateToken(active.token);
+    return {
+      team: `${identity.teamName} (${identity.teamId})`,
+      missing: missingScopes(identity.scopes),
+    };
+  } catch {
+    return undefined;
+  }
+}
+
+async function setup(args: string[]): Promise<string> {
   let rest = args;
   const reset = takeBool(rest, "--reset");
   rest = reset.rest;
@@ -145,6 +165,9 @@ function setup(args: string[]): string {
   const nameFlag = takeFlag(rest, "--name");
   rest = nameFlag.rest;
   if (nameFlag.value) setAppName(nameFlag.value);
+
+  const team = takeFlag(rest, "--team");
+  rest = team.rest;
 
   const confirm = takeFlag(rest, "--confirm-step");
   rest = confirm.rest;
@@ -163,9 +186,21 @@ function setup(args: string[]): string {
   const htmlFile = writeSetupHtmlFile(appName);
 
   const progress = setupProgress();
+  // A finished setup can still fall behind: a release that adds a required scope leaves the existing
+  // app without it. Check live so setup says so instead of a bare "complete". See specs/commands/auth.md.
+  const gap = progress.complete ? await liveScopeGap(team.value) : undefined;
+  const behind = gap !== undefined && gap.missing.length > 0;
   const head = encodeBlock("setup", {
     progress: `${progress.done} of ${progress.total} steps complete`,
-    ...(progress.complete ? { status: "complete" } : { next_step: progress.next }),
+    ...(progress.complete
+      ? behind
+        ? {
+            status: "complete, but the app is missing scopes",
+            workspace: gap.team,
+            missing_scopes: gap.missing.join(", "),
+          }
+        : { status: "complete" }
+      : { next_step: progress.next }),
   });
 
   let help: string[];
@@ -187,6 +222,12 @@ function setup(args: string[]): string {
     help = [
       'On the app\'s "OAuth & Permissions" page, click "Install to Workspace" and authorize',
       "Copy the User OAuth Token (xoxp-...) and run `slack-axi auth login --token xoxp-...`",
+    ];
+  } else if (behind) {
+    blocks.push(encodeBlock("files", { manifest: collapseHome(manifestFile) }));
+    help = [
+      ...addScopesHelp(gap.missing),
+      `Or paste the updated manifest from ${collapseHome(manifestFile)} on the app's App Manifest page, then reinstall`,
     ];
   } else {
     help = [
@@ -254,12 +295,7 @@ async function login(args: string[]): Promise<string> {
     default: getDefaultTeam() === identity.teamId,
   });
 
-  const help =
-    missing.length > 0
-      ? renderHelp([
-          `Add missing scopes (${missing.join(", ")}) via \`slack-axi auth setup\`, then re-install + re-login`,
-        ])
-      : "";
+  const help = missing.length > 0 ? renderHelp(addScopesHelp(missing)) : "";
   return joinBlocks(summary, help);
 }
 

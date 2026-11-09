@@ -31,6 +31,7 @@ import {
   uploadFiles,
 } from "../slack/files.js";
 import { toAxiError } from "../slack/errors.js";
+import { addScopesHelp } from "../slack/scopes.js";
 import { formatText, userName } from "../slack/format.js";
 import { renderMrkdwn } from "../slack/mrkdwn.js";
 import { getPermalink } from "../slack/permalink.js";
@@ -789,10 +790,7 @@ async function sendWithAttachments(
     throw new AxiError(
       "Cannot upload attachments: token is missing the `files:write` scope; nothing was posted",
       "SCOPE_MISSING",
-      [
-        "Re-run `slack-axi auth setup`, add `files:write`, and re-install the app, then retry",
-        "Run `slack-axi doctor` to confirm scope coverage",
-      ],
+      [...addScopesHelp(["files:write"])],
     );
   }
   const names = attachments.map((a) => a.name);

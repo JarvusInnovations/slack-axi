@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "no
 import { basename, extname, isAbsolute, join, resolve as resolvePath } from "node:path";
 import { AxiError } from "axi-sdk-js";
 import type { Session } from "../session.js";
+import { addScopesHelp } from "./scopes.js";
 
 /** A file attached to a message — metadata only; bytes are fetched on demand by `download`. */
 export interface FileMeta {
@@ -146,7 +147,7 @@ export async function fetchFileBytes(
     throw new AxiError(
       "Could not download file bytes — token is likely missing `files:read`",
       "SCOPE_MISSING",
-      ["Re-run `slack-axi auth setup`, add the `files:read` scope, and re-install the app"],
+      addScopesHelp(["files:read"]),
     );
   }
   return Buffer.from(await res.arrayBuffer());

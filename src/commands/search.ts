@@ -16,6 +16,7 @@ import {
   resolveChannel,
   resolveUserId,
 } from "../slack/resolve.js";
+import { addScopesHelp } from "../slack/scopes.js";
 import { handle } from "../slack/ts.js";
 import { DEFAULT_TZ, formatDate, formatDateTime, parseSpanMs, tsToEpochMs } from "../slack/time.js";
 
@@ -432,9 +433,11 @@ export function toSearchDate(when: string, tz: string): string {
 function scopeError(err: unknown, scope: string): unknown {
   const code = (err as { data?: { error?: string } })?.data?.error;
   if (code === "missing_scope") {
-    return new AxiError(`Token is missing the ${scope} scope`, "SCOPE_MISSING", [
-      `Re-run \`slack-axi auth setup\`, add ${scope}, re-install the app, then \`auth login\``,
-    ]);
+    return new AxiError(
+      `Token is missing the ${scope} scope`,
+      "SCOPE_MISSING",
+      addScopesHelp([scope]),
+    );
   }
   return err;
 }

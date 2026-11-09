@@ -3,6 +3,7 @@ import { takeBool, takeFlag } from "../flags.js";
 import { encodeObject, joinBlocks, renderHelp } from "../output.js";
 import { activeSession, type Session } from "../session.js";
 import { toAxiError } from "../slack/errors.js";
+import { addScopesHelp } from "../slack/scopes.js";
 import {
   clipLines,
   fetchFileBytes,
@@ -101,10 +102,7 @@ export async function fileCommand(args: string[]): Promise<string> {
         throw new AxiError(
           "Cannot read files: token is missing the `files:read` scope",
           "SCOPE_MISSING",
-          [
-            "Re-run `slack-axi auth setup`, add `files:read`, and re-install the app, then retry",
-            "Run `slack-axi doctor` to confirm scope coverage",
-          ],
+          [...addScopesHelp(["files:read"])],
         );
       }
       failed.push({ id, reason: ax.code });
