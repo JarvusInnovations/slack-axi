@@ -784,7 +784,16 @@ async function sendWithAttachments(
   try {
     fileIds = await uploadFiles(session, attachments);
   } catch (err) {
-    throw toAxiError(err, ctx);
+    const ax = toAxiError(err, ctx);
+    if (ax.code !== "SCOPE_MISSING") throw ax;
+    throw new AxiError(
+      "Cannot upload attachments: token is missing the `files:write` scope; nothing was posted",
+      "SCOPE_MISSING",
+      [
+        "Re-run `slack-axi auth setup`, add `files:write`, and re-install the app, then retry",
+        "Run `slack-axi doctor` to confirm scope coverage",
+      ],
+    );
   }
   const names = attachments.map((a) => a.name);
   const dest = { channelId: draft.channel_id, threadTs: draft.reply_to };
