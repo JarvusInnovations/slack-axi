@@ -175,8 +175,14 @@ export function takeAttachments(args: string[]): {
   const rest: string[] = [];
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
-    if ((a === "--file" || a === "--snippet") && i + 1 < args.length) {
-      requested.push({ kind: a === "--file" ? "file" : "snippet", path: args[i + 1] });
+    if (a === "--file" || a === "--snippet") {
+      const path = args[i + 1];
+      // Fail loud: a dropped attachment flag would send a message without the file the agent meant
+      // to attach, and a swallowed `--preview` would turn a preview into a real draft.
+      if (path === undefined || path.startsWith("--")) {
+        throw new AxiError(`${a} needs a path`, "USAGE", [`Pass it as \`${a} <path>\``]);
+      }
+      requested.push({ kind: a === "--file" ? "file" : "snippet", path });
       i++;
       continue;
     }

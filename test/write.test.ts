@@ -232,10 +232,13 @@ describe("takeAttachments", () => {
       rest: ["#eng", "hi", "--raw"],
     });
   });
-  it("a trailing flag with no value is left in rest", () => {
-    expect(takeAttachments(["#eng", "--file"])).toEqual({
-      requested: [],
-      rest: ["#eng", "--file"],
-    });
+  it("refuses an attachment flag with no path instead of dropping it", () => {
+    expect(() => takeAttachments(["#eng", "hi", "--file"])).toThrow(/--file needs a path/);
+    expect(() => takeAttachments(["#eng", "--snippet"])).toThrow(/--snippet needs a path/);
+  });
+  it("refuses to swallow the next flag as a path", () => {
+    expect(() => takeAttachments(["#eng", "hi", "--file", "--preview"])).toThrow(
+      /--file needs a path/,
+    );
   });
 });
