@@ -138,6 +138,15 @@ describe("searchCommand — query optional when a filter narrows", () => {
   it("accepts --from alone with no query", async () => {
     await expect(searchCommand(["--from", "alice"])).rejects.toMatchObject({ code: "NO_TOKEN" });
   });
+  it("keeps a -word exclusion as query text (NO_TOKEN, not USAGE)", async () => {
+    // Before, "-staging" was dropped as a flag; a lone exclusion left no query at all → USAGE.
+    await expect(searchCommand(["-staging"])).rejects.toMatchObject({ code: "NO_TOKEN" });
+  });
+  it("refuses a misspelled long flag instead of dropping it", async () => {
+    await expect(searchCommand(["deploy", "--frmo", "alice"])).rejects.toMatchObject({
+      code: "USAGE",
+    });
+  });
 
   it("documents filters-only search in --help", async () => {
     const help = await searchCommand(["--help"]);

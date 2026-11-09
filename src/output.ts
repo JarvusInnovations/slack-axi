@@ -92,7 +92,7 @@ export function anyTruncated(rows: Array<Record<string, unknown>>): boolean {
 }
 
 /** The `help[]` line that names the escape hatch, shown only when truncation actually occurred. */
-export const FULL_HINT = "Some message text was truncated; re-run with `--full` for complete text";
+export const FULL_HINT = "Some text was truncated; re-run with `--full` for the complete text";
 
 /**
  * Make an inline column uniform (auto-when-present): if any row carries a non-empty string under
