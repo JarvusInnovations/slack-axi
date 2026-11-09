@@ -30,6 +30,14 @@ framework (`AxiError`, `exitCodeForError`).
 Unmapped Slack errors become a generic `SLACK_ERROR` with the cleaned message and a `doctor`
 suggestion — never a raw stack trace.
 
+### Flags missing their value
+
+A flag that takes a value (`--reply <ts>`, `--since <span>`, `--file <path>`, …) but is given without
+one is a `USAGE` error naming the flag. "Without one" means the flag is the last argument, or the next
+argument is itself a `--` flag. The command never ignores the flag, and never takes the next flag as
+its value. Silently dropping `--reply` would post a thread reply to the channel instead, and taking
+`--preview` as a value would turn a preview into a real draft.
+
 ### Rate limiting
 
 `@slack/web-api` handles tiered rate-limit retry with backoff automatically. slack-axi surfaces a
