@@ -47,7 +47,7 @@ examples:
 
 export const DRAFT_HELP = `usage: slack-axi draft <channel> ["<markdown>"] [--reply <ts>] [--file <path>]… [--snippet <path>]… [--raw] [--preview]
        slack-axi draft send <draft-id>
-       slack-axi draft list
+       slack-axi draft list [--all]   (pending drafts; --all includes sent)
        slack-axi draft discard <draft-id>
 Prepares a message for approval — \`draft\` does NOT send. Review it, then \`draft send <id>\` posts it.
 Write MARKDOWN: it is rendered to Slack's dialect for the workspace mode (human → mrkdwn text,
@@ -241,7 +241,7 @@ export async function draftCommand(args: string[]): Promise<string> {
   if (args.includes("--help")) return DRAFT_HELP;
   const sub = args[0];
   if (sub === "send") return draftSend(args.slice(1));
-  if (sub === "list") return draftList();
+  if (sub === "list") return draftList(args.slice(1));
   if (sub === "discard") return draftDiscard(args.slice(1));
   return draftCreate(args);
 }
@@ -400,7 +400,7 @@ async function resolveTarget(
     const prior = getDraft(positional[0]);
     if (!prior) {
       throw new AxiError(`Draft ${positional[0]} not found`, "DRAFT_NOT_FOUND", [
-        "Run `slack-axi draft list` to see drafts; or target the message by <channel> <ts>",
+        "Run `slack-axi draft list --all` to see sent drafts; or target the message by <channel> <ts>",
       ]);
     }
     if (!prior.sent) {
@@ -621,6 +621,27 @@ async function draftSend(args: string[]): Promise<string> {
 
   // Act on the draft's own workspace (explicit team satisfies write-protection).
   const session = await activeSession({ teamFlag: draft.team, mutation: true });
+  return applyDraft(session, draft);
+}
+
+/** Tunables for `applyDraft`; tests shorten the share-ts poll. */
+export interface ApplyOptions {
+  /** How long to poll `files.info` for an attachment share's ts before reporting `ts: pending`. */
+  shareTimeoutMs?: number;
+}
+
+/**
+ * Apply an unsent draft against an already-resolved session: post (one message per chunk, the first
+ * carrying any attachments), edit, or delete; record the result on the draft and return the
+ * confirmation. Split from `draftSend` so the posting logic can be driven by a fake client in tests.
+ */
+export async function applyDraft(
+  session: Session,
+  draft: Draft,
+  options: ApplyOptions = {},
+): Promise<string> {
+  const id = draft.id;
+  const kind = draftKind(draft);
   const channel = `${draft.channel} (${draft.channel_id})`;
   const blocks = draft.blocks as KnownBlock[][] | undefined;
 
@@ -711,7 +732,13 @@ async function draftSend(args: string[]): Promise<string> {
     if (i === 0 && attachments.length > 0) {
       // The first message carries the files: upload (bytes verified against the pin), then share
       // them with the text (human/raw) or the first chunk's blocks (bot) in one completeUploadExternal.
-      const ts = await sendWithAttachments(session, draft, attachments, chunk);
+      const ts = await sendWithAttachments(
+        session,
+        draft,
+        attachments,
+        chunk,
+        options.shareTimeoutMs,
+      );
       fileIds = ts.fileIds;
       if (!ts.ts) sharePending = true;
       posted.push(ts.ts ?? "");
@@ -785,6 +812,7 @@ async function sendWithAttachments(
   draft: Draft,
   attachments: Attachment[],
   chunk: KnownBlock[] | undefined,
+  shareTimeoutMs?: number,
 ): Promise<{ fileIds: string[]; ts?: string }> {
   const ctx = { team: draft.team, channel: draft.channel };
   let fileIds: string[];
@@ -818,19 +846,39 @@ async function sendWithAttachments(
       throw toAxiError(e, ctx);
     });
   }
-  const ts = await findShareTs(session, fileIds[0], draft.channel_id).catch(() => undefined);
+  const ts = await findShareTs(session, fileIds[0], draft.channel_id, shareTimeoutMs).catch(
+    () => undefined,
+  );
   return { fileIds, ...(ts ? { ts } : {}) };
 }
 
-function draftList(): string {
-  const drafts = listDrafts();
-  if (drafts.length === 0) {
+/**
+ * Which drafts `draft list` shows: pending (unsent) ones by default — what an agent can still act on —
+ * or every draft with `all`. Pure. See specs/commands/write.md.
+ */
+export function selectDrafts<T extends Pick<Draft, "sent">>(
+  drafts: T[],
+  all: boolean,
+): { shown: T[]; pending: number; total: number } {
+  const pending = drafts.filter((d) => !d.sent);
+  return { shown: all ? drafts : pending, pending: pending.length, total: drafts.length };
+}
+
+function draftList(args: string[] = []): string {
+  const all = takeBool(args, "--all").present;
+  const { shown, pending, total } = selectDrafts(listDrafts(), all);
+  if (shown.length === 0) {
     return joinBlocks(
-      encodeObject({ drafts: "0 drafts" }),
-      renderHelp(['Create one with `slack-axi draft <channel> "<text>"`']),
+      encodeObject({
+        drafts: total === 0 ? "0 drafts" : `0 pending drafts (${total} already sent or applied)`,
+      }),
+      renderHelp([
+        'Create one with `slack-axi draft <channel> "<text>"`',
+        ...(total > 0 ? ["Run `slack-axi draft list --all` to include sent drafts"] : []),
+      ]),
     );
   }
-  const rows = drafts.map((d) => ({
+  const rows = shown.map((d) => ({
     id: d.id,
     channel: d.channel,
     status: draftStatus(d),
@@ -842,9 +890,16 @@ function draftList(): string {
       80,
     ),
   }));
+  const list = renderList("drafts", rows);
   return joinBlocks(
-    renderList("drafts", rows),
-    renderHelp(["Apply a pending draft with `slack-axi draft send <id>`"]),
+    // Header states both counts so a pending-only view is never mistaken for the whole history.
+    all ? list : list.replace(/^drafts\[\d+\]/, `drafts[${pending} pending of ${total}]`),
+    renderHelp([
+      "Apply a pending draft with `slack-axi draft send <id>`",
+      ...(!all && total > pending
+        ? ["Run `slack-axi draft list --all` to include sent drafts"]
+        : []),
+    ]),
   );
 }
 
