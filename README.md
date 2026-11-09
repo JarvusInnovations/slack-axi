@@ -106,7 +106,7 @@ bun test             # vitest (time/window math is unit-tested)
 ```
 
 The project is spec-driven — specs in [`specs/`](specs/) are the source of truth; work is tracked as
-plans in [`plans/`](plans/). Requires Node ≥ 20 (built/run with bun; published to run under node).
+plans in [`plans/`](plans/). Requires Node ≥ 22 (built/run with bun; published to run under node).
 
 ## License
 
