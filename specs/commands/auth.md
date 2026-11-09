@@ -31,6 +31,14 @@ A stored token is proof the app exists and is installed, so it **subsumes the `a
 waypoint**: once any workspace token is stored, setup reports `complete` and points at `doctor` —
 even if the user went straight to `auth login` without confirming `app_created`.
 
+A complete setup can still fall behind: a release that adds a required scope leaves the existing app
+without it. So when setup is complete, it checks the active workspace's granted scopes **live**
+(`auth.test`). If any required scope is missing, the status reads `complete, but the app is missing
+scopes`, with `missing_scopes` and the refreshed manifest path. `help[]` then gives the
+add-and-reinstall fix (see [auth-and-workspaces.md](../behaviors/auth-and-workspaces.md)), not
+`doctor`. If the check can't run (no token, network error), setup reports plain `complete`; it never
+fails on it. `--team <id>` picks the workspace to check.
+
 Flags: `--name <name>` (manifest app display name; default `slack-axi`), `--confirm-step app_created`,
 `--show-manifest` (echo the YAML inline), `--reset` (clear state, e.g. to onboard another workspace).
 

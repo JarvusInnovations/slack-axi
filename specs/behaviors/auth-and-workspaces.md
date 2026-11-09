@@ -25,6 +25,11 @@ and `slack/client.ts` (WebClient per team).
   history scopes.)
 - `doctor` compares granted scopes (from `auth.test`/stored metadata) against this required set and
   reports any gap with the exact missing scope.
+- **Adding a scope to an existing app does not change its token.** Adding the scope under User Token
+  Scopes (or in the manifest) and clicking Reinstall to Workspace grants it to the token already
+  stored. Every missing-scope hint (`doctor`, `auth login`, `auth setup`, `SCOPE_MISSING` errors) gives
+  exactly that fix, and never says to log in again. Granted scopes are read live from `auth.test`, so
+  the change shows up on the next run.
 
 ### Token resolution order
 
