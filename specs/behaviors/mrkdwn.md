@@ -99,8 +99,6 @@ threaded follow-up.
 - `--preview` (on `draft` and `edit`): render and print, write nothing. Human mode prints the rendered
   mrkdwn as `text`; bot mode prints `blocks: N in M chunk(s)` with each chunk's block types and the
   `text` fallback. The exit code is 0 and no draft id is issued.
-- `--no-unfurl` (on `draft` and `edit`) is not a rendering flag: it controls Slack's link/media
-  previews, not the text. See [write.md](../commands/write.md).
 
 ### What the draft record stores
 
