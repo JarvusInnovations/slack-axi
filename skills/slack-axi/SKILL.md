@@ -107,6 +107,9 @@ Read/search rows carry a compact `ts` handle, not a full permalink. To turn hand
   `human` (user token) → mrkdwn text; `bot` (bot token) → Block Kit, chunked. `**bold**` → `*bold*`, a
   single `*x*` is italic, `# H` → bold line, `- x` → `• x`, `[t](u)` → `<u|t>`. Hand-written `<@U…>`,
   `<url|label>`, `•` pass through. `--raw` skips rendering; `--preview` shows the rendering, saves nothing.
+- `--no-unfurl` (on `draft` and `edit`) — no link/media previews. Use it when the message is a list of
+  titled links, so each link doesn't drag in a preview card. On `edit` it strips the previews an earlier
+  post already has. The draft echo, `--preview` and `draft list` all show it.
 - `npx -y slack-axi edit <channel> <ts> "<new markdown>"` or `edit <sent-draft-id> "<new markdown>"` — prepare an
   edit of a message **this token posted**; the draft shows old → new. `draft send <id>` applies it.
 - `npx -y slack-axi delete <channel> <ts>` or `delete <sent-draft-id>` — prepare deletion of a message

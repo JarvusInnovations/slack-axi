@@ -58,10 +58,10 @@ slack-axi catchup [--since 1d] [--match q] [--in ...] [--full]   # scoped multi-
 slack-axi catchup --every 1w …  # plan a month+ catch-up as weekly batches
 slack-axi cite <channel> <ts…>  # permalinks + the { channel, ts, permalink } citation shape
 slack-axi react <channel> <ts> :emoji:                  # reactions:write
-slack-axi draft <channel> "<markdown>" [--reply <ts>] [--raw] [--preview]   # prepare a message (does NOT send)
+slack-axi draft <channel> "<markdown>" [--reply <ts>] [--raw] [--preview] [--no-unfurl]   # prepare a message (does NOT send)
 slack-axi draft <channel> "…" --file <path> --snippet <path>   # attach files / snippets (uploaded at send)
 slack-axi draft send <id>       # the explicit, separate step that posts
-slack-axi edit <channel> <ts> "<markdown>"   # prepare an edit of YOUR OWN message (or: edit <sent-draft-id> "…")
+slack-axi edit <channel> <ts> "<markdown>" [--no-unfurl]   # prepare an edit of YOUR OWN message (or: edit <sent-draft-id> "…")
 slack-axi delete <channel> <ts>           # prepare deletion of YOUR OWN message (or: delete <sent-draft-id>)
                                 # … both applied by the same `draft send <id>` step
 slack-axi auth mode [human|bot|auto]   # how outgoing Markdown is rendered (see below)
@@ -105,7 +105,9 @@ Human-mode before/after:
 
 Slack-native tokens you write by hand (`<@U…>`, `<#C…\|name>`, `<!here>`, `<url\|label>`, `•` bullets)
 pass through untouched in both modes. `--raw` skips rendering entirely; `--preview` prints the
-rendering without saving a draft. See `specs/behaviors/mrkdwn.md`.
+rendering without saving a draft. See `specs/behaviors/mrkdwn.md`. `--no-unfurl` posts without
+link/media previews (for a message that is a list of titled links); on `edit` it removes the previews
+an earlier post already carries.
 
 ## Development
 
