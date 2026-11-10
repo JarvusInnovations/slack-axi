@@ -21,7 +21,7 @@ even where the token's scopes would technically allow it.
 Adds a reaction (`reactions.write`). Idempotent — already present → `no-op`, exit 0 (see
 [errors.md](../behaviors/errors.md)). Returns a confirmation object (no `help[]`).
 
-### `draft <channel> ["<text>"] [--reply <ts>] [--file <path>]… [--snippet <path>]… [--raw] [--preview]`
+### `draft <channel> ["<text>"] [--reply <ts>] [--file <path>]… [--snippet <path>]… [--raw] [--preview] [--no-unfurl]`
 
 Creates a **draft** and returns it for approval. Does **not** send. `--reply <ts>` makes it a threaded
 draft. `--file <path>` attaches a local file and `--snippet <path>` attaches a local text file as a
@@ -29,8 +29,13 @@ snippet; both repeat, and the text may be omitted when an attachment is given. A
 nothing until `draft send` — see [files.md → Uploading](../behaviors/files.md#uploading-requires-fileswrite). The text is **Markdown** and is rendered at preparation time into the workspace mode's Slack
 dialect — mrkdwn text in human mode, Block Kit in bot mode — per
 [mrkdwn.md](../behaviors/mrkdwn.md). `--raw` skips rendering (text sent verbatim); `--preview` prints
-the rendering and writes nothing. The draft is persisted with an id and echoed back in full (the
-rendering + target) so a human or the agent can verify exactly what will be sent.
+the rendering and writes nothing. `--no-unfurl` turns off Slack's link and media previews for the
+post: `draft send` passes `unfurl_links: false` and `unfurl_media: false` on every `chat.postMessage`
+for the draft (each bot-mode chunk, and the `invalid_blocks` text fallback); without the flag neither
+parameter is sent and Slack's default applies. It is for a message that is a list of titled links,
+where one preview card per link buries the list. The draft is persisted with an id and echoed back in
+full (the rendering + target) so a human or the agent can verify exactly what will be sent; with
+`--no-unfurl` the echo and `--preview` add `unfurl: off`.
 
 ```
 draft: d_01H…
@@ -46,7 +51,9 @@ help[1]:
 In bot mode the echo shows `blocks: 7 in 1 chunk(s)` with each chunk's block types and the `text`
 fallback instead of the rendered text.
 
-A draft with attachments adds an `attachments` list (also under `--preview`):
+A draft with attachments adds an `attachments` list (also under `--preview`). Its first message is
+shared through `files.completeUploadExternal`, which takes no unfurl parameters, so `--no-unfurl`
+governs only the `chat.postMessage` calls (later chunks) of an attachment post:
 
 ```
 attachments[2]{name,kind,size,path}:
@@ -54,7 +61,7 @@ attachments[2]{name,kind,size,path}:
   query.sql,snippet (sql),2KB,/home/me/work/query.sql
 ```
 
-### `edit <channel> <ts> "<text>" [--raw] [--preview]` / `edit <sent-draft-id> "<text>"`
+### `edit <channel> <ts> "<text>" [--raw] [--preview] [--no-unfurl]` / `edit <sent-draft-id> "<text>" [--no-unfurl]`
 
 Prepares an **edit** of one of the token's own messages, as a draft of kind `edit`. Does **not**
 change anything in Slack. The target is a channel + `ts` handle (dotless or dotted), or the id of a
@@ -62,7 +69,10 @@ draft this tool already sent (its recorded channel + ts are the target — "fix 
 without hunting for the ts). The new text is Markdown and is rendered exactly as `draft` renders
 (`--raw`/`--preview` behave the same); a bot-mode edit whose rendering needs more than one chunk is
 refused with `TOO_LONG_FOR_EDIT`. `--file`/`--snippet` are refused with `USAGE`: Slack cannot change
-a message's files in an edit.
+a message's files in an edit. `--no-unfurl` removes the message's existing link/media previews:
+`chat.update` takes no `unfurl_*` parameters, and a message's unfurls are its `attachments`, so the
+edit is applied with `attachments: []` as well. Without the flag `attachments` is not sent and any
+previews stay. The echo and `--preview` add `unfurl: off (previews removed)`.
 
 Before the draft is written, the target message is fetched and the ownership rule above is applied.
 A message by anyone else → error `NOT_MESSAGE_AUTHOR`, naming who did post it, exit 1. A ts that
@@ -119,11 +129,13 @@ List drafts; discard one. By default `draft list` shows only **pending** drafts 
 applied) — the ones an agent can still act on — with a header that states both counts
 (`drafts[2 pending of 46]`) so the filtered view is never mistaken for the whole history; `--all`
 includes sent and applied drafts. With nothing pending, the empty state says how many were already
-sent and points at `--all`. The list shows each draft's kind (`post`, `edit`, `delete`) and status.
+sent and points at `--all`. The list shows each draft's kind (`post`, `edit`, `delete`) and status;
+a draft made with `--no-unfurl` has `, no unfurl` appended to its status.
 Drafts are stored locally as `~/.config/slack-axi/drafts/<id>.json` (each records its `team`,
 so `draft send` acts on the workspace the draft was created against, which also satisfies
 multi-workspace write-protection). A draft record carries `kind` (absent means `post`), the Markdown
-`markdown` source and its rendering (`text`, plus `blocks` in bot mode, or `raw: true`), any
+`markdown` source and its rendering (`text`, plus `blocks` in bot mode, or `raw: true`), `no_unfurl: true` when made with
+`--no-unfurl` (absent otherwise; stored so `draft send` honours it after the preparing process exits), any
 `attachments` (absolute path, name, size, SHA-256, and snippet type for snippets; the uploaded file ids
 are added under `sent.files` once sent), and for
 `edit`/`delete` the `target_ts` and the `previous_text` captured at preparation time. `draft send`

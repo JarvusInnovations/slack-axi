@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { applyDraft, selectDrafts } from "../src/commands/write.js";
-import { type Draft, getDraft } from "../src/config.js";
+import { type Draft, getDraft, writeDraft } from "../src/config.js";
 import type { Session } from "../src/session.js";
 import { pinAttachment } from "../src/slack/files.js";
 
@@ -178,6 +178,81 @@ describe("applyDraft — edits and idempotency", () => {
     const out = await applyDraft(session, sent);
     expect(calls).toHaveLength(0);
     expect(out).toContain("already sent (no-op)");
+  });
+});
+
+describe("applyDraft — --no-unfurl", () => {
+  it("omits the unfurl parameters by default", async () => {
+    const { session, calls } = fakeSession({});
+    await applyDraft(session, baseDraft());
+    const post = calls.find((c) => c.method === "chat.postMessage");
+    expect(post?.args).toEqual({ channel: "C1", text: "hello" });
+  });
+
+  it("turns off link and media unfurls on a single post", async () => {
+    const { session, calls } = fakeSession({});
+    await applyDraft(session, baseDraft({ no_unfurl: true, reply_to: "1.5" }));
+    const posts = calls.filter((c) => c.method === "chat.postMessage");
+    expect(posts).toHaveLength(1);
+    expect(posts[0].args).toEqual({
+      channel: "C1",
+      thread_ts: "1.5",
+      text: "hello",
+      unfurl_links: false,
+      unfurl_media: false,
+    });
+  });
+
+  it("turns them off on every chunk, and on the invalid_blocks fallback", async () => {
+    const { session, calls } = fakeSession({
+      fail: {
+        "chat.postMessage": (a) =>
+          String(JSON.stringify(a.blocks)).includes("bad") ? "invalid_blocks" : undefined,
+      },
+    });
+    await applyDraft(
+      session,
+      baseDraft({ no_unfurl: true, blocks: [[section("one")], [section("bad")]] }),
+    );
+    const posts = calls.filter((c) => c.method === "chat.postMessage");
+    expect(posts).toHaveLength(3);
+    for (const p of posts) {
+      expect(p.args).toMatchObject({ unfurl_links: false, unfurl_media: false });
+    }
+  });
+
+  it("is honoured from the stored record, after the preparing process is gone", async () => {
+    writeDraft(baseDraft({ no_unfurl: true }));
+    const stored = getDraft("d_0000abcd");
+    expect(stored?.no_unfurl).toBe(true);
+    const { session, calls } = fakeSession({});
+    await applyDraft(session, stored as Draft);
+    expect(calls.find((c) => c.method === "chat.postMessage")?.args).toMatchObject({
+      unfurl_links: false,
+      unfurl_media: false,
+    });
+    expect(getDraft("d_0000abcd")?.no_unfurl).toBe(true);
+  });
+
+  it("an edit clears the message's attachments (its unfurls)", async () => {
+    const { session, calls } = fakeSession({});
+    await applyDraft(
+      session,
+      baseDraft({ kind: "edit", target_ts: "1.2", text: "new", no_unfurl: true }),
+    );
+    expect(calls.find((c) => c.method === "chat.update")?.args).toEqual({
+      channel: "C1",
+      ts: "1.2",
+      text: "new",
+      blocks: [],
+      attachments: [],
+    });
+  });
+
+  it("an edit without the flag leaves attachments alone", async () => {
+    const { session, calls } = fakeSession({});
+    await applyDraft(session, baseDraft({ kind: "edit", target_ts: "1.2", text: "new" }));
+    expect(calls.find((c) => c.method === "chat.update")?.args).not.toHaveProperty("attachments");
   });
 });
 

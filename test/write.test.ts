@@ -13,6 +13,8 @@ import {
   isOwnMessage,
   renderOutgoing,
   takeAttachments,
+  takePostFlags,
+  unfurlArgs,
 } from "../src/commands/write.js";
 import { writeDraft } from "../src/config.js";
 import type { Session } from "../src/session.js";
@@ -47,6 +49,13 @@ describe("draft kinds + status", () => {
     const sent = { ts: "1.2", permalink: "", at: "" };
     expect(draftStatus({ sent })).toBe("sent");
     expect(draftStatus({ kind: "edit", sent })).toBe("edit applied");
+  });
+  it("marks a --no-unfurl draft in its status", () => {
+    expect(draftStatus({ no_unfurl: true })).toBe("pending, no unfurl");
+    expect(draftStatus({ reply_to: "1.2", no_unfurl: true })).toBe("reply (pending), no unfurl");
+    expect(draftStatus({ kind: "edit", no_unfurl: true })).toBe("edit (pending), no unfurl");
+    const sent = { ts: "1.2", permalink: "", at: "" };
+    expect(draftStatus({ sent, no_unfurl: true })).toBe("sent, no unfurl");
   });
   it("firstLine skips leading blank lines", () => {
     expect(firstLine("\n\n  hello\nworld")).toBe("hello");
@@ -136,6 +145,23 @@ describe("edit/delete validation happens before any network call", () => {
       code: "NO_TOKEN",
     });
   });
+  it("draft and edit accept --no-unfurl (validation clears, stops at auth)", async () => {
+    await expect(draftCommand(["#eng", "--no-unfurl", "- [a](https://a.x)"])).rejects.toMatchObject(
+      { code: "NO_TOKEN" },
+    );
+    await expect(
+      editCommand(["#eng", "1717589640123456", "new", "--no-unfurl"]),
+    ).rejects.toMatchObject({ code: "NO_TOKEN" });
+  });
+  it("a misspelled unfurl flag is refused, not taken as text", async () => {
+    await expect(draftCommand(["#eng", "hi", "--no-unfurls"])).rejects.toMatchObject({
+      code: "USAGE",
+    });
+  });
+  it("--help lists --no-unfurl on draft and edit", async () => {
+    expect(await draftCommand(["--help"])).toContain("--no-unfurl");
+    expect(await editCommand(["--help"])).toContain("--no-unfurl");
+  });
   it("--help documents the ownership rule", async () => {
     expect(await editCommand(["--help"])).toContain("OWN messages");
     expect(await deleteCommand(["--help"])).toContain("OWN messages");
@@ -206,6 +232,29 @@ describe("renderOutgoing / describeOutgoing", () => {
       raw: true,
       text: "*already mrkdwn*",
     });
+  });
+});
+
+describe("takePostFlags", () => {
+  it("takes --raw, --preview and --no-unfurl in any position and leaves the text", () => {
+    expect(takePostFlags(["#eng", "--no-unfurl", "hi", "--raw"])).toEqual({
+      raw: true,
+      preview: false,
+      noUnfurl: true,
+      rest: ["#eng", "hi"],
+    });
+  });
+  it("defaults every flag to off", () => {
+    expect(takePostFlags(["#eng", "hi"])).toEqual({
+      raw: false,
+      preview: false,
+      noUnfurl: false,
+      rest: ["#eng", "hi"],
+    });
+  });
+  it("unfurlArgs turns both unfurls off only for a --no-unfurl draft", () => {
+    expect(unfurlArgs({ no_unfurl: true })).toEqual({ unfurl_links: false, unfurl_media: false });
+    expect(unfurlArgs({})).toEqual({});
   });
 });
 

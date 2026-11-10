@@ -45,7 +45,7 @@ examples:
   slack-axi react #eng 1717589640123456 :eyes:
   slack-axi react C0123ABCD 1717589640.123456 tada`;
 
-export const DRAFT_HELP = `usage: slack-axi draft <channel> ["<markdown>"] [--reply <ts>] [--file <path>]… [--snippet <path>]… [--raw] [--preview]
+export const DRAFT_HELP = `usage: slack-axi draft <channel> ["<markdown>"] [--reply <ts>] [--file <path>]… [--snippet <path>]… [--raw] [--preview] [--no-unfurl]
        slack-axi draft send <draft-id>
        slack-axi draft list [--all]   (pending drafts; --all includes sent)
        slack-axi draft discard <draft-id>
@@ -56,27 +56,34 @@ through untouched; \`*x*\` means italic — write \`**x**\` for bold.
 \`draft send\` is also how an \`edit\` or \`delete\` draft is applied (one approval step for every write).
 Attachments are pinned (size + SHA-256) when the draft is made and uploaded only at \`draft send\`; a
 file that changed in between refuses the send (ATTACHMENT_CHANGED). Needs the files:write scope.
-flags[5]:
+flags[6]:
   --reply <ts>       Post as a thread reply
   --file <path>      Attach a local file (repeatable; text optional when attaching)
   --snippet <path>   Attach a local text file as a snippet, syntax from its extension (repeatable)
   --raw              Skip rendering; send the text verbatim (for callers that already write mrkdwn)
   --preview          Print the rendering and write nothing
+  --no-unfurl        Post without link/media previews (e.g. a list of titled links)
 examples:
   slack-axi draft #eng "Deploy is **green** ✅ — see [runbook](https://r.un/book)"
   slack-axi draft #eng --reply 1717589640123456 "confirmed"
   slack-axi draft #eng --preview "## Status\\n- api ok\\n- web ok"
   slack-axi draft #eng "The failing query:" --snippet ./q.sql --file ./error.png
+  slack-axi draft #eng --no-unfurl "Reading:\\n- [Spec](https://a.example)\\n- [Plan](https://b.example)"
   slack-axi draft send d_1a2b3c4d`;
 
-export const EDIT_HELP = `usage: slack-axi edit <channel> <ts> "<new markdown>" [--raw] [--preview]
-       slack-axi edit <sent-draft-id> "<new markdown>"
+export const EDIT_HELP = `usage: slack-axi edit <channel> <ts> "<new markdown>" [--raw] [--preview] [--no-unfurl]
+       slack-axi edit <sent-draft-id> "<new markdown>" [--no-unfurl]
 Prepares an edit of one of THIS TOKEN'S OWN messages (checked before the draft is written) — nothing
 changes in Slack until \`draft send <id>\`. The draft shows old → new for review. Target a message by
 channel + ts handle, or by the id of a draft this tool already sent. The new text is Markdown and is
 rendered exactly as \`draft\` renders it (\`--raw\` to skip, \`--preview\` to see it without saving).
+flags[3]:
+  --raw              Skip rendering; send the text verbatim (for callers that already write mrkdwn)
+  --preview          Print the rendering and write nothing
+  --no-unfurl        Remove the message's link/media previews (clears its attachments)
 examples:
   slack-axi edit #eng 1717589640123456 "Deploy is **green** ✅ (all regions)"
+  slack-axi edit d_1a2b3c4d --no-unfurl "same text, without the previews"
   slack-axi edit d_1a2b3c4d "corrected wording"
   slack-axi draft send d_9f8e7d6c`;
 
@@ -117,11 +124,39 @@ export function firstLine(text: string): string {
 }
 
 /** The `status` cell for `draft list`, kind-aware. */
-export function draftStatus(draft: Pick<Draft, "kind" | "sent" | "reply_to">): string {
+export function draftStatus(
+  draft: Pick<Draft, "kind" | "sent" | "reply_to" | "no_unfurl">,
+): string {
   const kind = draftKind(draft);
-  if (draft.sent) return kind === "post" ? "sent" : `${kind} applied`;
-  if (kind === "post") return draft.reply_to ? "reply (pending)" : "pending";
-  return `${kind} (pending)`;
+  const unfurl = draft.no_unfurl ? ", no unfurl" : "";
+  if (draft.sent) return (kind === "post" ? "sent" : `${kind} applied`) + unfurl;
+  if (kind === "post") return (draft.reply_to ? "reply (pending)" : "pending") + unfurl;
+  return `${kind} (pending)${unfurl}`;
+}
+
+/** The boolean flags `draft` and `edit` share, taken from `args`; the rest is returned untouched. */
+export function takePostFlags(args: string[]): {
+  raw: boolean;
+  preview: boolean;
+  noUnfurl: boolean;
+  rest: string[];
+} {
+  const raw = takeBool(args, "--raw");
+  const preview = takeBool(raw.rest, "--preview");
+  const noUnfurl = takeBool(preview.rest, "--no-unfurl");
+  return {
+    raw: raw.present,
+    preview: preview.present,
+    noUnfurl: noUnfurl.present,
+    rest: noUnfurl.rest,
+  };
+}
+
+/** The `chat.postMessage` unfurl arguments for a draft: both off with `--no-unfurl`, else none. */
+export function unfurlArgs(
+  draft: Pick<Draft, "no_unfurl">,
+): { unfurl_links: false; unfurl_media: false } | Record<string, never> {
+  return draft.no_unfurl ? { unfurl_links: false, unfurl_media: false } : {};
 }
 
 // ---------------------------------------------------------------------------- outgoing rendering
@@ -251,15 +286,14 @@ export async function editCommand(args: string[]): Promise<string> {
   refuseAttachments(args, "edit");
   const usage =
     'usage: slack-axi edit <channel> <ts> "<new text>"  |  edit <sent-draft-id> "<new text>"';
-  const raw = takeBool(args, "--raw");
-  const preview = takeBool(raw.rest, "--preview");
-  const { target, text: markdown } = await resolveTarget(preview.rest, usage, true);
+  const flags = takePostFlags(args);
+  const { target, text: markdown } = await resolveTarget(flags.rest, usage, true);
   if (!markdown) {
     throw new AxiError(usage, "USAGE", ["Pass the replacement text as the last argument"]);
   }
 
   const mode = await resolveMode(target.session);
-  const out = await renderOutgoing(mode, markdown, raw.present);
+  const out = await renderOutgoing(mode, markdown, flags.raw);
   if (out.blocks && out.blocks.length > 1) {
     throw new AxiError(
       `The new text renders to ${out.blocks.length} messages' worth of blocks; an edit can replace only one`,
@@ -269,9 +303,10 @@ export async function editCommand(args: string[]): Promise<string> {
       ],
     );
   }
-  const shown = describeOutgoing(mode, out, raw.present);
+  const shown = describeOutgoing(mode, out, flags.raw);
+  const unfurl = flags.noUnfurl ? { unfurl: "off (previews removed)" } : {};
 
-  if (preview.present) {
+  if (flags.preview) {
     return encodeObject({
       preview: "nothing saved",
       kind: "edit",
@@ -279,6 +314,7 @@ export async function editCommand(args: string[]): Promise<string> {
       target: handle(target.ts),
       old: target.previousRendered,
       ...renameText(shown, "new"),
+      ...unfurl,
     });
   }
 
@@ -293,7 +329,8 @@ export async function editCommand(args: string[]): Promise<string> {
     markdown,
     text: out.text,
     ...(out.blocks ? { blocks: out.blocks } : {}),
-    ...(raw.present ? { raw: true } : {}),
+    ...(flags.raw ? { raw: true } : {}),
+    ...(flags.noUnfurl ? { no_unfurl: true } : {}),
     created_at: new Date().toISOString(),
   };
   writeDraft(draft);
@@ -307,6 +344,7 @@ export async function editCommand(args: string[]): Promise<string> {
       target: handle(target.ts),
       old: target.previousRendered,
       ...renameText(shown, "new"),
+      ...unfurl,
     }),
     renderHelp([
       `Review it, then apply with \`slack-axi draft send ${draft.id}\` (or discard with \`draft discard ${draft.id}\`)`,
@@ -520,15 +558,14 @@ async function draftCreate(args: string[]): Promise<string> {
   const team = takeFlag(args, "--team");
   const reply = takeFlag(team.rest, "--reply");
   const attach = takeAttachments(reply.rest);
-  const raw = takeBool(attach.rest, "--raw");
-  const preview = takeBool(raw.rest, "--preview");
+  const flags = takePostFlags(attach.rest);
   // Dash-led text (`- item`, `---`) is text; only an unknown `--flag` is refused. See errors.md.
-  const positional = textArgs(preview.rest);
+  const positional = textArgs(flags.rest);
   const channelArg = positional[0];
   const markdown = positional.slice(1).join(" ");
   if (!channelArg || (!markdown && attach.requested.length === 0)) {
     throw new AxiError(
-      'usage: slack-axi draft <channel> ["<markdown>"] [--reply <ts>] [--file <path>]… [--snippet <path>]… [--raw] [--preview]',
+      'usage: slack-axi draft <channel> ["<markdown>"] [--reply <ts>] [--file <path>]… [--snippet <path>]… [--raw] [--preview] [--no-unfurl]',
       "USAGE",
       [],
     );
@@ -548,17 +585,19 @@ async function draftCreate(args: string[]): Promise<string> {
   const channel = await resolveChannel(session, channelArg);
   const label = await channelLabel(session, channel);
   const mode = await resolveMode(session);
-  const out = markdown ? await renderOutgoing(mode, markdown, raw.present) : { text: "" };
+  const out = markdown ? await renderOutgoing(mode, markdown, flags.raw) : { text: "" };
   // An attachment-only draft has no text to show.
-  const shown = markdown ? describeOutgoing(mode, out, raw.present) : { mode };
+  const shown = markdown ? describeOutgoing(mode, out, flags.raw) : { mode };
+  const unfurl = flags.noUnfurl ? { unfurl: "off" } : {};
 
-  if (preview.present) {
+  if (flags.preview) {
     return joinBlocks(
       encodeObject({
         preview: "nothing saved",
         channel: `${label} (${channel.id})`,
         ...(reply.value ? { reply_to: handle(dottedTs(reply.value)) } : {}),
         ...shown,
+        ...unfurl,
       }),
       attachmentsBlock(attachments),
     );
@@ -573,7 +612,8 @@ async function draftCreate(args: string[]): Promise<string> {
     markdown,
     text: out.text,
     ...(out.blocks ? { blocks: out.blocks } : {}),
-    ...(raw.present ? { raw: true } : {}),
+    ...(flags.raw ? { raw: true } : {}),
+    ...(flags.noUnfurl ? { no_unfurl: true } : {}),
     ...(attachments.length > 0 ? { attachments } : {}),
     created_at: new Date().toISOString(),
   };
@@ -586,6 +626,7 @@ async function draftCreate(args: string[]): Promise<string> {
       channel: `${label} (${channel.id})`,
       ...(draft.reply_to ? { reply_to: handle(draft.reply_to) } : {}),
       ...shown,
+      ...unfurl,
     }),
     attachmentsBlock(attachments),
     renderHelp([
@@ -656,11 +697,13 @@ export async function applyDraft(
     const ts = draft.target_ts ?? "";
     try {
       // Blocks are replaced wholesale: the rendering's single chunk, or none (clears any prior blocks).
+      // `chat.update` takes no unfurl_* flags; unfurls live as attachments, so --no-unfurl clears them.
       await session.client.chat.update({
         channel: draft.channel_id,
         ts,
         text: draft.text,
         blocks: blocks?.[0] ?? [],
+        ...(draft.no_unfurl ? { attachments: [] } : {}),
       });
     } catch (err) {
       throw toAxiError(err, { team: draft.team, channel: draft.channel });
@@ -735,6 +778,7 @@ export async function applyDraft(
     const base = {
       channel: draft.channel_id,
       ...(draft.reply_to ? { thread_ts: draft.reply_to } : {}),
+      ...unfurlArgs(draft),
     };
     if (i === 0 && attachments.length > 0) {
       // The first message carries the files: upload (bytes verified against the pin), then share
