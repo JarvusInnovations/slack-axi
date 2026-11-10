@@ -129,6 +129,12 @@ export interface Draft {
   blocks?: unknown[][];
   /** True when rendering was skipped (`--raw`). */
   raw?: boolean;
+  /**
+   * True when link/media unfurls are off (`--no-unfurl`): a post sends `unfurl_links: false` and
+   * `unfurl_media: false` on every `chat.postMessage`; an edit clears the message's attachments (where
+   * unfurls live). Absent means Slack's default unfurling.
+   */
+  no_unfurl?: boolean;
   /** Local files pinned at preparation time (path, size, SHA-256); uploaded only at `draft send`. */
   attachments?: Attachment[];
   created_at: string;
