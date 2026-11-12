@@ -1,6 +1,6 @@
 ---
 name: slack-axi
-description: Read, search, cite, and draft Slack from the shell. Use when asked to read or summarize a Slack channel, find a discussion across Slack, look up private channels / group DMs / DMs, read a channel over a date range, follow a thread, produce permalink citations, view or download a file or code snippet shared in Slack, or draft a message (optionally with attached files or snippets) for approval before posting. Token-efficient TOON output; human date ranges in, permalinks out.
+description: Read, search, cite, and draft Slack from the shell. Use when asked to read or summarize a Slack channel, find a discussion across Slack, look up private channels / group DMs / DMs, read a channel over a date range, follow a thread, check who can read a conversation (externally shared, guests, other-organization members), produce permalink citations, view or download a file or code snippet shared in Slack, or draft a message (optionally with attached files or snippets) for approval before posting. Token-efficient TOON output; human date ranges in, permalinks out.
 ---
 
 # slack-axi
@@ -25,6 +25,7 @@ arguments accept `#name`, bare `name`, or an id (`C…`/`G…`/`D…`) interchan
 - `npx -y slack-axi dms` — DMs and group DMs with participants.
 - `npx -y slack-axi members <channel>` — channel members; external/shared-channel and guest names resolved on demand, unresolvable ids shown as `Uxxxx (unresolved)`.
 - `npx -y slack-axi user <id|@handle> [...]` — look up users by id or handle: real/display name and whether each is external (Slack Connect), a guest, or a bot. Resolves shared-channel members the roster misses.
+- `npx -y slack-axi audience <channel>` — who can read a conversation: its sharing flags (`is_shared`, `is_ext_shared`, `is_org_shared`, `is_pending_ext_shared`) and counts of full members, guests, external (other-organization) members, deactivated accounts and bots, plus the non-full members by name. `--members` lists everyone with flags; `--max-members <n>` (default 200) bounds the lookup and reports `truncated: true` past it. Use it to tell whether a message would go outside the workspace.
 
 ## Read a channel over a time window (the primary verb)
 
