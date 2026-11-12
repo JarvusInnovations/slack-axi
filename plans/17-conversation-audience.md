@@ -1,11 +1,12 @@
 ---
-status: in-progress
+status: done
 depends: [02-discovery, 10-external-user-resolution]
 specs:
   - specs/commands/audience.md
   - specs/behaviors/errors.md
   - specs/architecture.md
 issues: []
+pr: 40
 ---
 
 # 17 — `audience`: who can read a conversation
@@ -45,14 +46,16 @@ be live); changing `members` or `user`; the pre-existing `USAGE` exit code (see 
 
 ## Validation
 
-- [ ] `bun run lint`, `format:check`, `typecheck`, `build`, `test` all clean (the CI steps).
-- [ ] Tests cover: a plain internal channel; an externally shared channel; a guest; a member from
+- [x] `bun run lint`, `format:check`, `typecheck`, `build`, `test` all clean (the CI steps; 225 tests).
+- [x] Tests cover: a plain internal channel; an externally shared channel; a guest; a member from
       another team; a same-org other-workspace member; an im; pagination across pages; truncation at
       the bound (with and without `num_members`); unresolved users; `--members`; channel-not-found;
       not-in-channel (from `conversations.info` and from `conversations.members`); missing scope from
       `conversations.info` (with `needed`) and from `users.info` (without it); a bot-token scope hint;
       unknown flag, missing channel and bad `--max-members` usage errors raised before any Slack call.
-- [ ] `slack-axi audience --help` prints the command help; `slack-axi --help` lists `audience`.
+      (30 tests in `test/audience.test.ts`.)
+- [x] `slack-axi audience --help` prints the command help; `slack-axi --help` lists `audience`. (Checked on the built
+      `dist/bin/slack-axi.js`.)
 
 ## Risks / unknowns
 
