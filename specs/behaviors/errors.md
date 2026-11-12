@@ -27,6 +27,10 @@ framework (`AxiError`, `exitCodeForError`).
 | `ratelimited` | `RATE_LIMITED` | handled by SDK retry; if exhausted, `Retry after <n>s` |
 | `not_authed` / no token resolved | `NO_TOKEN` | `Set SLACK_AXI_TOKEN or run 'slack-axi auth login'` |
 
+`audience` adds two distinctions of its own (an unknown conversation vs one the token can't read the
+members of, and a `SCOPE_MISSING` that names the scope for the call that failed); see
+[audience.md](../commands/audience.md#errors).
+
 Unmapped Slack errors become a generic `SLACK_ERROR` with the cleaned message and a `doctor`
 suggestion — never a raw stack trace.
 
