@@ -78,7 +78,7 @@ Per [output-format.md](../behaviors/output-format.md). A workspace header, a `co
 workspace: Acme (T0AAAAAAA)
 conversation:
   id: C0BBBBBBB
-  name: "#proj-shared"
+  name: #proj-shared
   kind: channel
   is_member: true
   is_shared: true
