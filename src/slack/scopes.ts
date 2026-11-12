@@ -31,10 +31,14 @@ export function missingScopes(granted: string[]): string[] {
  * and reinstall it. Slack keeps the same token across a scope-adding reinstall, so no `auth login` is
  * needed — granted scopes are read live from `auth.test`. See specs/behaviors/auth-and-workspaces.md.
  */
-export function addScopesHelp(missing: readonly string[]): string[] {
+export function addScopesHelp(
+  missing: readonly string[],
+  options: { bot?: boolean } = {},
+): string[] {
   const list = missing.length > 0 ? missing.map((s) => `\`${s}\``).join(", ") : "the missing scope";
+  const kind = options.bot ? "Bot" : "User";
   return [
-    `Add ${list} under User Token Scopes on the app's OAuth & Permissions page (https://api.slack.com/apps), then click Reinstall to Workspace`,
+    `Add ${list} under ${kind} Token Scopes on the app's OAuth & Permissions page (https://api.slack.com/apps), then click Reinstall to Workspace`,
     "The token stays the same, so there is no need to log in again; re-run `slack-axi doctor` to confirm",
   ];
 }

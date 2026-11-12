@@ -57,7 +57,7 @@ slack-axi/
     cli.ts                    # runAxiCli({ home, commands, getCommandHelp, resolveContext })
     config.ts                 # XDG paths, team/token/cache helpers, default-team, env resolution
     commands/
-      home.ts  auth.ts  doctor.ts  channels.ts  user.ts  read.ts  search.ts  write.ts  reactions.ts  download.ts  file.ts  setup.ts
+      home.ts  auth.ts  doctor.ts  channels.ts  user.ts  audience.ts  read.ts  search.ts  write.ts  reactions.ts  download.ts  file.ts  setup.ts
     slack/
       client.ts               # @slack/web-api WebClient factory per team (token injection)
       resolve.ts              # #name|name|id → channel; user id → name (cache-backed, users.info fallback)

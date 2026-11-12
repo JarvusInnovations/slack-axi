@@ -1,4 +1,5 @@
 import { runAxiCli } from "axi-sdk-js";
+import { audienceCommand, AUDIENCE_HELP } from "./commands/audience.js";
 import { authCommand, AUTH_HELP } from "./commands/auth.js";
 import { cacheCommand, CACHE_HELP } from "./commands/cache.js";
 import {
@@ -33,13 +34,14 @@ import {
 import { DESCRIPTION, readVersion } from "./meta.js";
 
 export const TOP_HELP = `usage: slack-axi [command] [args] [flags]
-commands[20]:
-  (none)=home, auth, doctor, channels, dms, members, user, read, thread, cite, search, catchup, react, reactions, download, file, draft, edit, delete, setup
+commands[21]:
+  (none)=home, auth, doctor, channels, dms, members, audience, user, read, thread, cite, search, catchup, react, reactions, download, file, draft, edit, delete, setup
 flags[2]:
   --team <id> (per-command), --help, -v/--version
 examples:
   slack-axi channels --match proj
   slack-axi read #general --since 7d
+  slack-axi audience C0123ABCD          (sharing flags + guests/external members)
   slack-axi search "token refresh" --in #eng --after 2026-05-01
   slack-axi search "contract" --files --from alice
   slack-axi catchup --from 2026-05-01 --to 2026-06-07 --every 1w --match proj
@@ -58,6 +60,7 @@ const COMMAND_HELP: Record<string, string> = {
   channels: CHANNELS_HELP,
   dms: DMS_HELP,
   members: MEMBERS_HELP,
+  audience: AUDIENCE_HELP,
   user: USER_HELP,
   cache: CACHE_HELP,
   read: READ_HELP,
@@ -87,6 +90,7 @@ export async function main(): Promise<void> {
       channels: (args) => channelsCommand(args),
       dms: (args) => dmsCommand(args),
       members: (args) => membersCommand(args),
+      audience: (args) => audienceCommand(args),
       user: (args) => userCommand(args),
       cache: (args) => cacheCommand(args),
       read: (args) => readCommand(args),
