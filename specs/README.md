@@ -22,6 +22,7 @@ specs/
     doctor.md        # health + scope coverage
     channels.md      # channels / dms / members / search channels
     user.md          # user <id|@handle> lookup (external/guest resolution)
+    audience.md      # audience <channel> — sharing flags + member account types (who can read it)
     read.md          # read <channel> + thread <channel> <ts>
     download.md      # download <file-id...> — fetch attachment bytes to disk
     file.md          # file <file-id...> — metadata + text of snippets/text files, inline
