@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { listWorkspaceIds, manifestPath, setupHtmlPath, setupStatePath } from "../config.js";
+import { loginCommand } from "../hints.js";
 import { REQUIRED_SCOPES } from "../slack/scopes.js";
 
 /** Where to start "Create an app from a manifest". */
@@ -121,7 +122,9 @@ export function writeManifestFile(appName: string): string {
 export function writeSetupHtmlFile(appName: string): string {
   const path = setupHtmlPath();
   const manifest = buildManifest(appName);
-  const escaped = manifest.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const escapeHtml = (s: string) =>
+    s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const escaped = escapeHtml(manifest);
   const html = `<!doctype html>
 <html lang="en">
 <head>
@@ -147,7 +150,8 @@ export function writeSetupHtmlFile(appName: string): string {
   </li>
   <li>On the app’s <strong>OAuth &amp; Permissions</strong> page, click <strong>Install to Workspace</strong> and authorize.</li>
   <li>Copy the <strong>User OAuth Token</strong> (<code>xoxp-…</code>) and run:<br>
-    <code>slack-axi auth login --token xoxp-…</code></li>
+    <code>${escapeHtml(loginCommand())}</code><br>
+    and paste the token at the silent prompt (this keeps it out of your shell history).</li>
 </ol>
 </body>
 </html>

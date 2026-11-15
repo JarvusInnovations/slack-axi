@@ -10,7 +10,7 @@ import {
   removeDraft,
   writeDraft,
 } from "../config.js";
-import { isLongFlag, takeBool, takeFlag, textArgs } from "../flags.js";
+import { bool, type Parsed, parseCommand, str, usageError } from "../flags.js";
 import { encodeObject, joinBlocks, renderHelp, renderList, truncate } from "../output.js";
 import {
   activeSession,
@@ -134,21 +134,12 @@ export function draftStatus(
   return `${kind} (pending)${unfurl}`;
 }
 
-/** The boolean flags `draft` and `edit` share, taken from `args`; the rest is returned untouched. */
-export function takePostFlags(args: string[]): {
-  raw: boolean;
-  preview: boolean;
-  noUnfurl: boolean;
-  rest: string[];
-} {
-  const raw = takeBool(args, "--raw");
-  const preview = takeBool(raw.rest, "--preview");
-  const noUnfurl = takeBool(preview.rest, "--no-unfurl");
+/** The switches `draft` and `edit` share. */
+export function postFlags(parsed: Parsed): { raw: boolean; preview: boolean; noUnfurl: boolean } {
   return {
-    raw: raw.present,
-    preview: preview.present,
-    noUnfurl: noUnfurl.present,
-    rest: noUnfurl.rest,
+    raw: bool(parsed, "--raw"),
+    preview: bool(parsed, "--preview"),
+    noUnfurl: bool(parsed, "--no-unfurl"),
   };
 }
 
@@ -195,43 +186,16 @@ export function describeOutgoing(mode: Mode, out: Outgoing, raw: boolean): Recor
 
 const DRAFT_ID_RE = /^d_[0-9a-f]{8}$/;
 
-/** The attachment flags, which `edit`/`delete` refuse (Slack can't change a message's files). */
-const ATTACHMENT_FLAGS = ["--file", "--snippet"];
-
 /**
- * Pull repeatable `--file <path>` / `--snippet <path>` flags out of `args`, in the order given.
- * Returns the requested attachments (unvalidated) and the remaining args.
+ * The repeatable `--file <path>` / `--snippet <path>` flags of a parsed `draft`, in the order given
+ * across both flags (unvalidated). `edit`/`delete` refuse them in their flag declarations.
  */
-export function takeAttachments(args: string[]): {
-  requested: Array<{ kind: "file" | "snippet"; path: string }>;
-  rest: string[];
-} {
-  const requested: Array<{ kind: "file" | "snippet"; path: string }> = [];
-  const rest: string[] = [];
-  for (let i = 0; i < args.length; i++) {
-    const a = args[i];
-    if (a === "--file" || a === "--snippet") {
-      const path = args[i + 1];
-      // Fail loud: a dropped attachment flag would send a message without the file the agent meant
-      // to attach, and a swallowed `--preview` would turn a preview into a real draft.
-      if (path === undefined || isLongFlag(path)) {
-        throw new AxiError(`${a} needs a path`, "USAGE", [`Pass it as \`${a} <path>\``]);
-      }
-      requested.push({ kind: a === "--file" ? "file" : "snippet", path });
-      i++;
-      continue;
-    }
-    rest.push(a);
-  }
-  return { requested, rest };
-}
-
-function refuseAttachments(args: string[], command: string): void {
-  if (args.some((a) => ATTACHMENT_FLAGS.includes(a))) {
-    throw new AxiError(`\`${command}\` cannot add or change attachments`, "USAGE", [
-      "Slack cannot change a message's files; delete and re-post with `slack-axi draft … --file <path>`",
-    ]);
-  }
+export function requestedAttachments(
+  parsed: Parsed,
+): Array<{ kind: "file" | "snippet"; path: string }> {
+  return parsed.ordered
+    .filter((o) => o.name === "--file" || o.name === "--snippet")
+    .map((o) => ({ kind: o.name === "--file" ? "file" : "snippet", path: o.value }));
 }
 
 /** The `attachments[N]{name,kind,size,path}` block of a draft echo, or `""` when there are none. */
@@ -243,14 +207,12 @@ function attachmentsBlock(attachments: Attachment[] | undefined): string {
 
 export async function reactCommand(args: string[]): Promise<string> {
   if (args.includes("--help")) return REACT_HELP;
-  const team = takeFlag(args, "--team");
-  const [channelArg, tsArg, emojiArg] = team.rest.filter((a) => !a.startsWith("-"));
-  if (!channelArg || !tsArg || !emojiArg) {
-    throw new AxiError("usage: slack-axi react <channel> <ts> <:emoji:>", "USAGE", []);
-  }
+  const parsed = parseCommand("react", args);
+  const [channelArg, tsArg, emojiArg] = parsed.positional;
+  if (!channelArg || !tsArg || !emojiArg) throw usageError("react");
   const name = emojiArg.replace(/:/g, "").trim();
 
-  const session = await activeSession({ teamFlag: team.value, mutation: true });
+  const session = await activeSession({ teamFlag: str(parsed, "--team"), mutation: true });
   const channel = await resolveChannel(session, channelArg);
   const ts = dottedTs(tsArg);
 
@@ -283,13 +245,12 @@ export async function draftCommand(args: string[]): Promise<string> {
 
 export async function editCommand(args: string[]): Promise<string> {
   if (args.includes("--help")) return EDIT_HELP;
-  refuseAttachments(args, "edit");
-  const usage =
-    'usage: slack-axi edit <channel> <ts> "<new text>"  |  edit <sent-draft-id> "<new text>"';
-  const flags = takePostFlags(args);
-  const { target, text: markdown } = await resolveTarget(flags.rest, usage, true);
+  // Dash-led text (`- item`, `---`) is text; `--file`/`--snippet` are refused with a targeted hint.
+  const parsed = parseCommand("edit", args);
+  const flags = postFlags(parsed);
+  const { target, text: markdown } = await resolveTarget("edit", parsed, true);
   if (!markdown) {
-    throw new AxiError(usage, "USAGE", ["Pass the replacement text as the last argument"]);
+    throw usageError("edit", ["Pass the replacement text as the last argument"]);
   }
 
   const mode = await resolveMode(target.session);
@@ -354,9 +315,7 @@ export async function editCommand(args: string[]): Promise<string> {
 
 export async function deleteCommand(args: string[]): Promise<string> {
   if (args.includes("--help")) return DELETE_HELP;
-  refuseAttachments(args, "delete");
-  const usage = "usage: slack-axi delete <channel> <ts>  |  delete <sent-draft-id>";
-  const { target } = await resolveTarget(args, usage, false);
+  const { target } = await resolveTarget("delete", parseCommand("delete", args), false);
 
   const draft: Draft = {
     id: newDraftId(),
@@ -419,14 +378,13 @@ interface Target {
  * costs no network call.
  */
 async function resolveTarget(
-  args: string[],
-  usage: string,
+  command: "edit" | "delete",
+  parsed: Parsed,
   takesText: boolean,
 ): Promise<{ target: Target; text: string }> {
-  const team = takeFlag(args, "--team");
-  // Dash-led text (`- item`, `---`) is text; only an unknown `--flag` is refused. See errors.md.
-  const positional = textArgs(team.rest);
-  if (positional.length === 0) throw new AxiError(usage, "USAGE", []);
+  const team = { value: str(parsed, "--team") };
+  const positional = parsed.positional;
+  if (positional.length === 0) throw usageError(command);
 
   let session: Session;
   let channelId: string;
@@ -452,7 +410,9 @@ async function resolveTarget(
       );
     }
     textParts = positional.slice(1);
-    if (takesText && textParts.length === 0) throw new AxiError(usage, "USAGE", []);
+    if (takesText && textParts.length === 0) throw usageError(command);
+    // `delete <sent-draft-id>` takes nothing after the id; a stray argument is not silently dropped.
+    if (!takesText && textParts.length > 0) throw usageError(command);
     const chunkCount = prior.sent.chunks?.length ?? 1;
     if (takesText && chunkCount > 1) {
       throw new AxiError(
@@ -486,9 +446,7 @@ async function resolveTarget(
     }
   } else {
     const [channelArg, tsArg, ...rest] = positional;
-    if (!channelArg || !tsArg || (takesText && rest.length === 0)) {
-      throw new AxiError(usage, "USAGE", []);
-    }
+    if (!channelArg || !tsArg || (takesText && rest.length === 0)) throw usageError(command);
     textParts = rest;
     session = await activeSession({ teamFlag: team.value });
     channelId = (await resolveChannel(session, channelArg)).id;
@@ -555,21 +513,16 @@ function workspaceLabel(session: Session): string {
 }
 
 async function draftCreate(args: string[]): Promise<string> {
-  const team = takeFlag(args, "--team");
-  const reply = takeFlag(team.rest, "--reply");
-  const attach = takeAttachments(reply.rest);
-  const flags = takePostFlags(attach.rest);
   // Dash-led text (`- item`, `---`) is text; only an unknown `--flag` is refused. See errors.md.
-  const positional = textArgs(flags.rest);
+  const parsed = parseCommand("draft", args);
+  const team = { value: str(parsed, "--team") };
+  const reply = { value: str(parsed, "--reply") };
+  const attach = { requested: requestedAttachments(parsed) };
+  const flags = postFlags(parsed);
+  const positional = parsed.positional;
   const channelArg = positional[0];
   const markdown = positional.slice(1).join(" ");
-  if (!channelArg || (!markdown && attach.requested.length === 0)) {
-    throw new AxiError(
-      'usage: slack-axi draft <channel> ["<markdown>"] [--reply <ts>] [--file <path>]… [--snippet <path>]… [--raw] [--preview] [--no-unfurl]',
-      "USAGE",
-      [],
-    );
-  }
+  if (!channelArg || (!markdown && attach.requested.length === 0)) throw usageError("draft");
   if (attach.requested.length > MAX_ATTACHMENTS) {
     throw new AxiError(
       `${attach.requested.length} attachments given; Slack allows at most ${MAX_ATTACHMENTS} per message`,
@@ -636,8 +589,8 @@ async function draftCreate(args: string[]): Promise<string> {
 }
 
 async function draftSend(args: string[]): Promise<string> {
-  const id = args.find((a) => !a.startsWith("-"));
-  if (!id) throw new AxiError("usage: slack-axi draft send <draft-id>", "USAGE", []);
+  const id = parseCommand("draft send", args).positional[0];
+  if (!id) throw usageError("draft send");
   const draft = getDraft(id);
   if (!draft) {
     throw new AxiError(`Draft ${id} not found`, "DRAFT_NOT_FOUND", [
@@ -916,7 +869,7 @@ export function selectDrafts<T extends Pick<Draft, "sent">>(
 }
 
 function draftList(args: string[] = []): string {
-  const all = takeBool(args, "--all").present;
+  const all = bool(parseCommand("draft list", args), "--all");
   const { shown, pending, total } = selectDrafts(listDrafts(), all);
   if (shown.length === 0) {
     return joinBlocks(
@@ -941,10 +894,9 @@ function draftList(args: string[] = []): string {
       80,
     ),
   }));
-  const list = renderList("drafts", rows);
   return joinBlocks(
-    // Header states both counts so a pending-only view is never mistaken for the whole history.
-    all ? list : list.replace(/^drafts\[\d+\]/, `drafts[${pending} pending of ${total}]`),
+    // `count:` states both numbers so a pending-only view is never mistaken for the whole history.
+    renderList("drafts", rows, all ? { total } : { total, qualifier: "pending" }),
     renderHelp([
       "Apply a pending draft with `slack-axi draft send <id>`",
       ...(!all && total > pending
@@ -955,8 +907,8 @@ function draftList(args: string[] = []): string {
 }
 
 function draftDiscard(args: string[]): string {
-  const id = args.find((a) => !a.startsWith("-"));
-  if (!id) throw new AxiError("usage: slack-axi draft discard <draft-id>", "USAGE", []);
+  const id = parseCommand("draft discard", args).positional[0];
+  if (!id) throw usageError("draft discard");
   const existed = removeDraft(id);
   return encodeObject({ discarded: existed ? id : `${id} (not found — no-op)` });
 }

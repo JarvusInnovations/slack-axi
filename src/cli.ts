@@ -1,4 +1,4 @@
-import { runAxiCli } from "axi-sdk-js";
+import { AxiError, exitCodeForError, runAxiCli } from "axi-sdk-js";
 import { audienceCommand, AUDIENCE_HELP } from "./commands/audience.js";
 import { authCommand, AUTH_HELP } from "./commands/auth.js";
 import { cacheCommand, CACHE_HELP } from "./commands/cache.js";
@@ -32,6 +32,7 @@ import {
   REACT_HELP,
 } from "./commands/write.js";
 import { DESCRIPTION, readVersion } from "./meta.js";
+import { renderError } from "./output.js";
 
 export const TOP_HELP = `usage: slack-axi [command] [args] [flags]
 commands[21]:
@@ -54,7 +55,7 @@ examples:
   slack-axi edit #eng <ts> "corrected text"   (own message; then: slack-axi draft send <id>)
   slack-axi delete #eng <ts>                  (own message; then: slack-axi draft send <id>)`;
 
-const COMMAND_HELP: Record<string, string> = {
+export const COMMAND_HELP: Record<string, string> = {
   auth: AUTH_HELP,
   doctor: DOCTOR_HELP,
   channels: CHANNELS_HELP,
@@ -78,10 +79,44 @@ const COMMAND_HELP: Record<string, string> = {
   setup: SETUP_HELP,
 };
 
-export async function main(): Promise<void> {
+/**
+ * Error codes that mean the invocation was wrong, not that the operation failed. These exit 2; the SDK
+ * maps only its own `VALIDATION_ERROR` that way. See specs/behaviors/errors.md → Exit codes.
+ */
+const USAGE_CODES = new Set(["USAGE", "UNKNOWN_FLAG", "VALIDATION_ERROR"]);
+
+/**
+ * Exported (not inlined into the `runAxiCli` call) so the exit-code mapping and the INTERNAL_ERROR
+ * wrap can be unit-tested. Ported from nexudus-axi `src/cli.ts`.
+ */
+export function formatError(error: unknown): { output: string; exitCode: number } {
+  if (error instanceof AxiError) {
+    return {
+      // Written verbatim by the SDK, so the trailing newline is ours.
+      output: `${renderError(error.message, error.code, error.suggestions)}\n`,
+      exitCode: USAGE_CODES.has(error.code) ? 2 : exitCodeForError(error),
+    };
+  }
+
+  // Never let a raw dependency error or stack trace reach stdout: an agent would read it as data.
+  const message = error instanceof Error ? error.message : String(error);
+  return {
+    output: `${renderError(`unexpected failure: ${message}`, "INTERNAL_ERROR", [
+      "Run `slack-axi doctor` to check the token, scopes and connectivity",
+    ])}\n`,
+    exitCode: 1,
+  };
+}
+
+export async function main(
+  argv: string[] = process.argv.slice(2),
+  stdout?: { write: (chunk: string) => unknown },
+): Promise<void> {
   await runAxiCli({
     description: DESCRIPTION,
     version: readVersion(),
+    argv,
+    ...(stdout ? { stdout } : {}),
     topLevelHelp: TOP_HELP,
     home: () => homeCommand(),
     commands: {
@@ -108,5 +143,6 @@ export async function main(): Promise<void> {
       setup: (args) => setupCommand(args),
     },
     getCommandHelp: (command) => COMMAND_HELP[command],
+    formatError,
   });
 }

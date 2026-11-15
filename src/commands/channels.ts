@@ -1,5 +1,5 @@
 import { AxiError } from "axi-sdk-js";
-import { takeBool, takeFlag } from "../flags.js";
+import { bool, parseCommand, parseFields, str, usageError } from "../flags.js";
 import { encodeBlock, joinBlocks, renderHelp, renderList, truncate } from "../output.js";
 import { activeSession, type Session } from "../session.js";
 import {
@@ -29,6 +29,9 @@ examples:
   slack-axi channels --match proj
   slack-axi channels --all --match proj`;
 
+/** The extra columns `channels --fields` offers; any other name is an error. */
+export const CHANNEL_FIELDS = ["is_member", "topic", "purpose"];
+
 const DEFAULT_CHANNEL_LIMIT = 50;
 const DEFAULT_DM_LIMIT = 50;
 const DEFAULT_MEMBER_LIMIT = 100;
@@ -39,31 +42,36 @@ function parseLimit(value: string | undefined, fallback: number): number {
   return Number.isFinite(n) && n > 0 ? n : fallback;
 }
 
-export const DMS_HELP = `usage: slack-axi dms
-Lists your direct messages (im) and group DMs (mpim), participant names resolved where known.`;
+export const DMS_HELP = `usage: slack-axi dms [--limit <n>]
+Lists your direct messages (im) and group DMs (mpim), participant names resolved where known.
+flags[1]:
+  --limit <n>    Max rows to show (default ${DEFAULT_DM_LIMIT})`;
 
-export const MEMBERS_HELP = `usage: slack-axi members <channel>
+export const MEMBERS_HELP = `usage: slack-axi members <channel> [--limit <n>]
 Lists the members of a channel (#name, name, or id). Names are resolved where known — including
 external/shared-channel and guest members via on-demand lookup; any id that can't be resolved is
-shown as \`Uxxxx (unresolved)\` rather than implying it's a handle.`;
+shown as \`Uxxxx (unresolved)\` rather than implying it's a handle.
+flags[1]:
+  --limit <n>    Max rows to show (default ${DEFAULT_MEMBER_LIMIT})`;
 
 const TYPE_ORDER: Record<ChannelType, number> = { public: 0, private: 1, mpim: 2, im: 3 };
 
 export async function channelsCommand(args: string[]): Promise<string> {
   if (args.includes("--help")) return CHANNELS_HELP;
-  const team = takeFlag(args, "--team");
-  const all = takeBool(team.rest, "--all");
-  const type = takeFlag(all.rest, "--type");
-  const match = takeFlag(type.rest, "--match");
-  const limitFlag = takeFlag(match.rest, "--limit");
-  const fields = takeFlag(limitFlag.rest, "--fields");
-  const limit = parseLimit(limitFlag.value, DEFAULT_CHANNEL_LIMIT);
-  const extra = (fields.value ?? "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
+  const parsed = parseCommand("channels", args);
+  const all = { present: bool(parsed, "--all") };
+  const type = { value: str(parsed, "--type") };
+  const match = { value: str(parsed, "--match") };
+  const limit = parseLimit(str(parsed, "--limit"), DEFAULT_CHANNEL_LIMIT);
+  // Validated before any Slack call. See specs/behaviors/output-format.md → Schemas.
+  const extra = parseFields("channels", str(parsed, "--fields"), CHANNEL_FIELDS);
+  if (type.value && !["public", "private", "mpim", "im"].includes(type.value)) {
+    throw new AxiError(`Unknown --type '${type.value}'`, "USAGE", [
+      "Use one of: public, private, mpim, im",
+    ]);
+  }
 
-  const session = await activeSession({ teamFlag: team.value });
+  const session = await activeSession({ teamFlag: str(parsed, "--team") });
 
   let pool: ChannelMeta[];
   if (all.present) {
@@ -77,14 +85,7 @@ export async function channelsCommand(args: string[]): Promise<string> {
 
   const total = pool.length;
   let filtered = pool;
-  if (type.value) {
-    if (!["public", "private", "mpim", "im"].includes(type.value)) {
-      throw new AxiError(`Unknown --type '${type.value}'`, "USAGE", [
-        "Use one of: public, private, mpim, im",
-      ]);
-    }
-    filtered = filtered.filter((c) => c.type === type.value);
-  }
+  if (type.value) filtered = filtered.filter((c) => c.type === type.value);
   if (match.value) filtered = fuzzyChannelMatches(filtered, match.value, filtered.length);
 
   if (filtered.length === 0) {
@@ -145,10 +146,9 @@ export async function channelsCommand(args: string[]): Promise<string> {
 
 export async function dmsCommand(args: string[]): Promise<string> {
   if (args.includes("--help")) return DMS_HELP;
-  const team = takeFlag(args, "--team");
-  const limitFlag = takeFlag(team.rest, "--limit");
-  const limit = parseLimit(limitFlag.value, DEFAULT_DM_LIMIT);
-  const session = await activeSession({ teamFlag: team.value });
+  const parsed = parseCommand("dms", args);
+  const limit = parseLimit(str(parsed, "--limit"), DEFAULT_DM_LIMIT);
+  const session = await activeSession({ teamFlag: str(parsed, "--team") });
 
   const dms = (await getChannels(session)).filter(
     (c) => c.is_member && (c.type === "im" || c.type === "mpim"),
@@ -180,13 +180,12 @@ export async function dmsCommand(args: string[]): Promise<string> {
 
 export async function membersCommand(args: string[]): Promise<string> {
   if (args.includes("--help")) return MEMBERS_HELP;
-  const team = takeFlag(args, "--team");
-  const limitFlag = takeFlag(team.rest, "--limit");
-  const limit = parseLimit(limitFlag.value, DEFAULT_MEMBER_LIMIT);
-  const target = limitFlag.rest.find((a) => !a.startsWith("-"));
-  if (!target) throw new AxiError("usage: slack-axi members <channel> [--limit <n>]", "USAGE", []);
+  const parsed = parseCommand("members", args);
+  const limit = parseLimit(str(parsed, "--limit"), DEFAULT_MEMBER_LIMIT);
+  const target = parsed.positional[0];
+  if (!target) throw usageError("members");
 
-  const session = await activeSession({ teamFlag: team.value });
+  const session = await activeSession({ teamFlag: str(parsed, "--team") });
   const channel = await resolveChannel(session, target);
   const ids = await listMembers(session, channel.id);
   if (ids.length === 0)

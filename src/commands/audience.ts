@@ -1,5 +1,5 @@
 import { AxiError } from "axi-sdk-js";
-import { isLongFlag, takeBool, takeFlag } from "../flags.js";
+import { bool, FLAG_SPECS, parseCommand, str } from "../flags.js";
 import { encodeBlock, joinBlocks, renderHelp, renderList } from "../output.js";
 import { activeSession, type Session } from "../session.js";
 import { toAxiError } from "../slack/errors.js";
@@ -36,7 +36,6 @@ examples:
 
 const PAGE_SIZE = 200;
 const LOOKUP_CONCURRENCY = 8;
-const VALID_FLAGS = "--members, --max-members <n>, --team <id> (--help always allowed)";
 
 export type ConversationKind = "channel" | "private" | "im" | "mpim";
 
@@ -97,31 +96,21 @@ export interface AudienceReport {
 
 export async function audienceCommand(args: string[]): Promise<string> {
   if (args.includes("--help")) return AUDIENCE_HELP;
-  const team = takeFlag(args, "--team");
-  const list = takeBool(team.rest, "--members");
-  const max = takeFlag(list.rest, "--max-members");
-  const unknown = max.rest.find((a) => isLongFlag(a) || /^-[A-Za-z]/.test(a));
-  if (unknown) {
-    throw new AxiError(`Unknown flag ${unknown} for \`audience\``, "USAGE", [
-      `Valid flags for \`audience\`: ${VALID_FLAGS}`,
+  // A second channel is refused by the parser (one positional declared).
+  const parsed = parseCommand("audience", args);
+  const team = str(parsed, "--team");
+  if (parsed.positional.length === 0) {
+    throw new AxiError("audience needs a channel", "USAGE", [
+      `usage: ${FLAG_SPECS.audience.usage}`,
     ]);
   }
-  if (max.rest.length !== 1) {
-    throw new AxiError(
-      max.rest.length === 0
-        ? "audience needs a channel"
-        : `audience takes one channel, got ${max.rest.length}`,
-      "USAGE",
-      ["usage: slack-axi audience <channel> [--members] [--max-members <n>] [--team <id>]"],
-    );
-  }
-  const maxMembers = parseMaxMembers(max.value);
+  const maxMembers = parseMaxMembers(str(parsed, "--max-members"));
 
-  const session = await activeSession({ teamFlag: team.value });
-  const raw = normalizeChannelArg(max.rest[0]);
+  const session = await activeSession({ teamFlag: team });
+  const raw = normalizeChannelArg(parsed.positional[0]);
   const channelId = looksLikeId(raw) ? raw : (await resolveChannel(session, raw)).id;
   const report = await collectAudience(session, channelId, { maxMembers });
-  return renderAudience(session, report, { members: list.present, team: team.value });
+  return renderAudience(session, report, { members: bool(parsed, "--members"), team });
 }
 
 export function parseMaxMembers(value: string | undefined): number {

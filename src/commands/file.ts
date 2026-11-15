@@ -1,5 +1,5 @@
 import { AxiError } from "axi-sdk-js";
-import { takeBool, takeFlag } from "../flags.js";
+import { bool, parseCommand, str, usageError } from "../flags.js";
 import { encodeObject, joinBlocks, renderHelp } from "../output.js";
 import { activeSession, type Session } from "../session.js";
 import { toAxiError } from "../slack/errors.js";
@@ -75,16 +75,16 @@ export function renderFileBlock(
 
 export async function fileCommand(args: string[]): Promise<string> {
   if (args.includes("--help")) return FILE_HELP;
-  const team = takeFlag(args, "--team");
-  const full = takeBool(team.rest, "--full");
-  const ids = full.rest.filter((a) => !a.startsWith("-"));
+  const parsed = parseCommand("file", args);
+  const full = { present: bool(parsed, "--full") };
+  const ids = parsed.positional;
   if (ids.length === 0) {
-    throw new AxiError("usage: slack-axi file <file-id...> [--full]", "USAGE", [
+    throw usageError("file", [
       "Pass one or more file ids (F…) from a `read`/`thread` files column",
     ]);
   }
 
-  const session = await activeSession({ teamFlag: team.value });
+  const session = await activeSession({ teamFlag: str(parsed, "--team") });
   const blocks: string[] = [];
   const binaries: string[] = [];
   const failed: Array<{ id: string; reason: string }> = [];

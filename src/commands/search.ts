@@ -1,5 +1,5 @@
 import { AxiError } from "axi-sdk-js";
-import { takeBool, takeFlag, takeFlags, textArgs } from "../flags.js";
+import { bool, multiStr, parseCommand, str, usageError } from "../flags.js";
 import {
   anyTruncated,
   encodeObject,
@@ -69,29 +69,27 @@ const CONV_TYPES: ConvType[] = ["public", "private", "mpim", "im"];
 export async function searchCommand(args: string[]): Promise<string> {
   if (args.includes("--help")) return SEARCH_HELP;
 
-  const team = takeFlag(args, "--team");
-  const filesFlag = takeBool(team.rest, "--files");
-  const files = filesFlag.present;
-  const inFlag = takeFlag(filesFlag.rest, "--in");
-  const fromFlag = takeFlag(inFlag.rest, "--from");
-  const withFlag = takeFlag(fromFlag.rest, "--with");
-  const toFlag = takeFlag(withFlag.rest, "--to");
-  const hasFlags = takeFlags(toFlag.rest, "--has");
-  const isFlags = takeFlags(hasFlags.rest, "--is");
-  const after = takeFlag(isFlags.rest, "--after");
-  const before = takeFlag(after.rest, "--before");
-  const on = takeFlag(before.rest, "--on");
-  const during = takeFlag(on.rest, "--during");
-  const typeFlag = takeFlag(during.rest, "--type");
-  const limitFlag = takeFlag(typeFlag.rest, "--limit");
-  const citeFlag = takeBool(limitFlag.rest, "--cite");
-  const cite = citeFlag.present;
-  const fullFlag = takeBool(citeFlag.rest, "--full");
-  const full = fullFlag.present;
-  // `-word` is Slack's exclusion syntax, so dash-led words are query text; only an unknown `--flag`
-  // is refused. See specs/behaviors/errors.md.
-  const positional = textArgs(fullFlag.rest);
-  const query = positional.join(" ").trim();
+  // `-word` is Slack's exclusion syntax, so dash-led words are query text (`text: true` in the
+  // declaration); only an unknown `--flag` is refused. See specs/behaviors/errors.md.
+  const parsed = parseCommand("search", args);
+  const value = (name: string) => ({ value: str(parsed, name) });
+  const team = value("--team");
+  const files = bool(parsed, "--files");
+  const inFlag = value("--in");
+  const fromFlag = value("--from");
+  const withFlag = value("--with");
+  const toFlag = value("--to");
+  const hasFlags = { values: multiStr(parsed, "--has") };
+  const isFlags = { values: multiStr(parsed, "--is") };
+  const after = value("--after");
+  const before = value("--before");
+  const on = value("--on");
+  const during = value("--during");
+  const typeFlag = value("--type");
+  const limitFlag = value("--limit");
+  const cite = bool(parsed, "--cite");
+  const full = bool(parsed, "--full");
+  const query = parsed.positional.join(" ").trim();
 
   // The free-text query is optional when a filter narrows the search. A "narrowing filter" is any flag
   // that becomes a Slack search modifier; `--type` is excluded because it's a post-filter with no
@@ -110,7 +108,7 @@ export async function searchCommand(args: string[]): Promise<string> {
     during.value,
   );
   if (!query && !hasNarrowingFilter) {
-    throw new AxiError('usage: slack-axi search ["<query>"] [flags]', "USAGE", [
+    throw usageError("search", [
       'Pass a search query, e.g. slack-axi search "proposal loss"',
       "…or search by filter alone, e.g. slack-axi search --in #eng --from alice --after 2026-05-01",
     ]);

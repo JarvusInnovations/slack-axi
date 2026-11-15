@@ -1,4 +1,5 @@
 import { listWorkspaceIds, resolveActiveToken } from "../config.js";
+import { loginHint } from "../hints.js";
 import { encodeBlock, joinBlocks, renderHelp } from "../output.js";
 import { cachedChannels } from "../slack/cache.js";
 
@@ -15,7 +16,7 @@ export async function homeCommand(): Promise<string> {
     // No token resolvable → setup-oriented home.
     return renderHelp([
       "Run `slack-axi auth setup` to create a Slack app and obtain a user token",
-      "Then `slack-axi auth login --token xoxp-...`",
+      loginHint(),
       "Run `slack-axi --help` to see the full command list, or `slack-axi <command> --help` for usage on any command",
     ]);
   }

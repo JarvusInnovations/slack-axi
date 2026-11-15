@@ -1,5 +1,4 @@
-import { AxiError } from "axi-sdk-js";
-import { takeFlag } from "../flags.js";
+import { parseCommand, str, usageError } from "../flags.js";
 import { encodeObject, joinBlocks, renderList } from "../output.js";
 import { activeSession } from "../session.js";
 import { getPermalink } from "../slack/permalink.js";
@@ -15,16 +14,15 @@ examples:
 
 export async function citeCommand(args: string[]): Promise<string> {
   if (args.includes("--help")) return CITE_HELP;
-  const team = takeFlag(args, "--team");
-  const positional = team.rest.filter((a) => !a.startsWith("-"));
-  const [target, ...tsArgs] = positional;
+  const parsed = parseCommand("cite", args);
+  const [target, ...tsArgs] = parsed.positional;
   if (!target || tsArgs.length === 0) {
-    throw new AxiError("usage: slack-axi cite <channel> <ts> [<ts> ...]", "USAGE", [
+    throw usageError("cite", [
       "Pass a channel and one or more ts handles from a `read`/`search` row",
     ]);
   }
 
-  const session = await activeSession({ teamFlag: team.value });
+  const session = await activeSession({ teamFlag: str(parsed, "--team") });
   const channel = await resolveChannel(session, target);
 
   const rows = await Promise.all(
