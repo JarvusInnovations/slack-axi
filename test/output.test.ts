@@ -1,5 +1,38 @@
 import { describe, expect, it } from "vitest";
-import { anyTruncated, FULL_HINT, TRUNCATION_MARK, truncate, wasTruncated } from "../src/output.js";
+import {
+  anyTruncated,
+  FULL_HINT,
+  renderList,
+  TRUNCATION_MARK,
+  truncate,
+  wasTruncated,
+} from "../src/output.js";
+
+describe("renderList", () => {
+  const rows = [
+    { id: "C1", name: "#general" },
+    { id: "C2", name: "#eng" },
+  ];
+  it("puts the total in a count: field and the row count in the array header", () => {
+    expect(renderList("channels", rows, { total: 47 })).toBe(
+      "count: 2 of 47\nchannels[2]{id,name}:\n  C1,#general\n  C2,#eng",
+    );
+  });
+  it("prints count: even when nothing was cut", () => {
+    expect(renderList("channels", rows, { total: 2 })).toMatch(/^count: 2 of 2\nchannels\[2\]/);
+  });
+  it("qualifies a filtered view", () => {
+    expect(renderList("drafts", rows, { total: 46, qualifier: "pending" })).toMatch(
+      /^count: 2 pending of 46\ndrafts\[2\]/,
+    );
+  });
+  it("carries no count: for a list that is complete by construction", () => {
+    expect(renderList("citations", rows)).toBe("citations[2]{id,name}:\n  C1,#general\n  C2,#eng");
+  });
+  it("never writes a total into the array header", () => {
+    expect(renderList("channels", rows, { total: 47 })).not.toMatch(/\[\d+ of/);
+  });
+});
 
 describe("truncate", () => {
   it("returns short text unchanged", () => {
