@@ -4,11 +4,13 @@
 
 Slack API errors are translated to structured `AxiError`s on stdout, in the same TOON format as normal
 output, each carrying an actionable suggestion that references a slack-axi command. Raw Slack/SDK
-payloads never leak. Mutations are idempotent. Exit codes: 0 success/no-op, 1 error, 2 usage.
+payloads never leak. Mutations are idempotent. Exit codes: 0 success/no-op, 1 error, 2 usage (see
+[Exit codes](#exit-codes)).
 
 ## Applies To
 
-Every command. Implemented in `slack/errors.ts` (`translateSlackError`) and the `axi-sdk-js` error
+Every command. Implemented in `slack/errors.ts` (`translateSlackError`), `flags.ts` (`parseFlags`),
+`cli.ts` (`formatError`) and the `axi-sdk-js` error
 framework (`AxiError`, `exitCodeForError`).
 
 ## Details
@@ -34,6 +36,41 @@ members of, and a `SCOPE_MISSING` that names the scope for the call that failed)
 Unmapped Slack errors become a generic `SLACK_ERROR` with the cleaned message and a `doctor`
 suggestion — never a raw stack trace.
 
+### Exit codes
+
+`0` success or no-op. `1` the operation failed (auth, not found, Slack error, anything unexpected).
+`2` the invocation was wrong: codes `USAGE`, `UNKNOWN_FLAG` and `VALIDATION_ERROR`.
+
+`axi-sdk-js` maps only its own `VALIDATION_ERROR` to exit 2, so `cli.ts` passes `runAxiCli` a
+`formatError` that maps all three. An error that is not an `AxiError` (a bug, a dependency failure)
+is rendered as `INTERNAL_ERROR` with the message `unexpected failure: <message>`, a hint to run
+`slack-axi doctor`, and exit 1. A stack trace never reaches stdout.
+
+### Declared flags
+
+Every command and subcommand declares its flags and positional arguments in one table in
+`src/flags.ts` (`FLAG_SPECS`), and parses through `parseFlags`. Nothing is silently dropped. All of
+these fail before any Slack call or file write:
+
+| Input | Code | The error says |
+| --- | --- | --- |
+| A flag the command doesn't declare | `UNKNOWN_FLAG` | ``valid flags for `<cmd>`: --a, --b (--help and --team always allowed)`` |
+| A declared-as-refused flag (e.g. `edit --file`) | `UNKNOWN_FLAG` | the targeted hint, in place of the list |
+| A value flag with no value | `USAGE` | which flag |
+| A switch given a value (`--full=yes`) | `USAGE` | that it takes none |
+| A non-repeatable flag given twice | `USAGE` | which flag |
+| More positional arguments than the command takes | `USAGE` | the extras and the usage line |
+| A missing required argument | `USAGE` | the usage line |
+| An unknown `--fields` name | `VALIDATION_ERROR` | the valid names |
+
+- `--help` is valid on every command. `--team <id>` is valid on every command that acts on a
+  workspace, and the unknown-flag message names it. Commands that never resolve a workspace
+  (`auth workspaces`, `setup hooks`, `draft send`, `draft list`, `draft discard`) refuse `--team`,
+  and their message says only `--help always allowed`.
+- `--flag value` and `--flag=value` both work.
+- Commands whose arguments are ids and handles (not free text) also refuse a short flag (`-x`) as
+  `UNKNOWN_FLAG`: there are no short flags.
+
 ### Flags missing their value
 
 A flag that takes a value (`--reply <ts>`, `--since <span>`, `--file <path>`, …) but is given without
@@ -47,8 +84,8 @@ its value. Silently dropping `--reply` would post a thread reply to the channel 
 Free-text arguments (`draft` and `edit` text, the `search` query) may begin with `-`: Markdown list
 items (`- api ok`), rules (`---`), negative numbers, and Slack's `-word` search exclusions are text,
 never flags. Only an argument shaped like a long flag (`--` followed by a letter) is a flag. If it isn't
-one the command knows, the result is a `USAGE` error naming it (`unknown flag --tema`). It is never
-silently dropped and never sent as text.
+one the command declares, the result is an `UNKNOWN_FLAG` error naming it and listing the valid flags
+(``unknown flag --tema for `draft` ``). It is never silently dropped and never sent as text.
 
 ### Rate limiting
 

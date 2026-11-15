@@ -1,5 +1,5 @@
 import { AxiError } from "axi-sdk-js";
-import { takeFlag } from "../flags.js";
+import { parseCommand, str, usageError } from "../flags.js";
 import { encodeObject, joinBlocks, renderHelp, renderList } from "../output.js";
 import { activeSession } from "../session.js";
 import { toAxiError } from "../slack/errors.js";
@@ -17,17 +17,16 @@ examples:
 
 export async function downloadCommand(args: string[]): Promise<string> {
   if (args.includes("--help")) return DOWNLOAD_HELP;
-  const team = takeFlag(args, "--team");
-  const out = takeFlag(team.rest, "--out");
-  const ids = out.rest.filter((a) => !a.startsWith("-"));
+  const parsed = parseCommand("download", args);
+  const ids = parsed.positional;
   if (ids.length === 0) {
-    throw new AxiError("usage: slack-axi download <file-id...> [--out <dir>]", "USAGE", [
+    throw usageError("download", [
       "Pass one or more file ids (F…) from a `read`/`thread` files column",
     ]);
   }
-  const outDir = out.value ?? process.cwd();
+  const outDir = str(parsed, "--out") ?? process.cwd();
 
-  const session = await activeSession({ teamFlag: team.value });
+  const session = await activeSession({ teamFlag: str(parsed, "--team") });
 
   const done: DownloadResult[] = [];
   const failed: Array<{ id: string; reason: string }> = [];
@@ -74,7 +73,7 @@ export async function downloadCommand(args: string[]): Promise<string> {
 
   return joinBlocks(
     encodeObject({ workspace: `${session.teamName ?? session.teamId} (${session.teamId})` }),
-    renderList("downloaded", rows, { total: done.length }),
+    renderList("downloaded", rows),
     renderHelp(help),
   );
 }

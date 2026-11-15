@@ -12,7 +12,9 @@ import {
   workspaceMode,
   writeStoredToken,
 } from "../config.js";
-import { takeBool, takeFlag } from "../flags.js";
+import { readFileSync } from "node:fs";
+import { bool, parseCommand, str, usageError } from "../flags.js";
+import { loginCommand, loginHint } from "../hints.js";
 import { collapseHome, encodeBlock, joinBlocks, renderHelp, renderList } from "../output.js";
 import {
   buildManifest,
@@ -32,7 +34,7 @@ import { addScopesHelp, missingScopes } from "../slack/scopes.js";
 export const AUTH_HELP = `usage: slack-axi auth <subcommand> [flags]
 subcommands[6]:
   setup                    Progressive guided setup: create an app from a manifest, then log in
-  login --token <xoxp-...> Validate and store a token (derives team/user/scopes/mode)
+  login --token-stdin      Validate and store a token read from stdin (derives team/user/scopes/mode)
   workspaces               List authenticated workspaces (default marked)
   use <team>               Set the default workspace
   mode [human|bot|auto]    Show or set how outgoing text is rendered (mrkdwn text vs Block Kit; auto = derive)
@@ -42,13 +44,17 @@ setup flags[4]:
   --confirm-step <step>    Mark a manual step done (step: app_created)
   --show-manifest          Also print the manifest YAML inline
   --reset                  Clear setup state (e.g. to set up another workspace)
-flags[2]:
-  --team <id>              Target a specific workspace (login/use/revoke)
-  --token <xoxp-...>       The user token to store (login)
+login flags[2]:
+  --token-stdin            Read the token from stdin (keeps it out of shell history and the process list)
+  --token <xoxp-...>       Pass the token as an argument instead (it will be visible in both)
+  With neither flag, login stores the token found in the SLACK_AXI_TOKEN environment variable.
+flags[1]:
+  --team <id>              Target a specific workspace (setup/login/mode/use/revoke)
 examples:
   slack-axi auth setup
   slack-axi auth setup --confirm-step app_created
-  slack-axi auth login --token xoxp-...
+  ${loginCommand()}
+  SLACK_AXI_TOKEN=xoxp-... slack-axi auth login
   slack-axi auth workspaces`;
 
 export async function authCommand(args: string[]): Promise<string> {
@@ -63,7 +69,7 @@ export async function authCommand(args: string[]): Promise<string> {
     case "login":
       return login(rest);
     case "workspaces":
-      return workspaces();
+      return workspaces(rest);
     case "use":
       return use(rest);
     case "mode":
@@ -79,9 +85,9 @@ export async function authCommand(args: string[]): Promise<string> {
 
 /** Show or set a workspace's outgoing-rendering mode. See specs/behaviors/mrkdwn.md. */
 function mode(args: string[]): string {
-  const team = takeFlag(args, "--team");
-  const value = team.rest.find((a) => !a.startsWith("-"));
-  const teamId = team.value ?? resolveActiveToken({}).teamId;
+  const parsed = parseCommand("auth mode", args);
+  const value = parsed.positional[0];
+  const teamId = str(parsed, "--team") ?? resolveActiveToken({}).teamId;
   if (!teamId) {
     throw new AxiError("No stored workspace to set a mode on", "TEAM_REQUIRED", [
       "Pass --team <id>, or set SLACK_AXI_MODE=human|bot for an env-token run",
@@ -154,31 +160,21 @@ async function liveScopeGap(
 }
 
 async function setup(args: string[]): Promise<string> {
-  let rest = args;
-  const reset = takeBool(rest, "--reset");
-  rest = reset.rest;
-  if (reset.present) resetSetup();
-
-  const showManifest = takeBool(rest, "--show-manifest");
-  rest = showManifest.rest;
-
-  const nameFlag = takeFlag(rest, "--name");
-  rest = nameFlag.rest;
-  if (nameFlag.value) setAppName(nameFlag.value);
-
-  const team = takeFlag(rest, "--team");
-  rest = team.rest;
-
-  const confirm = takeFlag(rest, "--confirm-step");
-  rest = confirm.rest;
-  if (confirm.value) {
-    if (confirm.value !== "app_created") {
-      throw new AxiError(`Unknown setup step: ${confirm.value}`, "USAGE", [
-        "The only manual step is `app_created`",
-      ]);
-    }
-    markAppCreated();
+  // Parse and validate everything before any state is touched.
+  const parsed = parseCommand("auth setup", args);
+  const teamFlag = str(parsed, "--team");
+  const showManifest = bool(parsed, "--show-manifest");
+  const confirm = str(parsed, "--confirm-step");
+  if (confirm !== undefined && confirm !== "app_created") {
+    throw new AxiError(`Unknown setup step: ${confirm}`, "USAGE", [
+      "The only manual step is `app_created`",
+    ]);
   }
+
+  if (bool(parsed, "--reset")) resetSetup();
+  const name = str(parsed, "--name");
+  if (name) setAppName(name);
+  if (confirm) markAppCreated();
 
   // Always refresh the generated artifacts so they reflect the current app name + scopes.
   const appName = readSetupState().app_name;
@@ -188,7 +184,7 @@ async function setup(args: string[]): Promise<string> {
   const progress = setupProgress();
   // A finished setup can still fall behind: a release that adds a required scope leaves the existing
   // app without it. Check live so setup says so instead of a bare "complete". See specs/commands/auth.md.
-  const gap = progress.complete ? await liveScopeGap(team.value) : undefined;
+  const gap = progress.complete ? await liveScopeGap(teamFlag) : undefined;
   const behind = gap !== undefined && gap.missing.length > 0;
   const head = encodeBlock("setup", {
     progress: `${progress.done} of ${progress.total} steps complete`,
@@ -221,7 +217,7 @@ async function setup(args: string[]): Promise<string> {
   } else if (progress.next === "token_stored") {
     help = [
       'On the app\'s "OAuth & Permissions" page, click "Install to Workspace" and authorize',
-      "Copy the User OAuth Token (xoxp-...) and run `slack-axi auth login --token xoxp-...`",
+      `Copy the User OAuth Token (xoxp-...), then run \`${loginCommand()}\` and paste it at the silent prompt`,
     ];
   } else if (behind) {
     blocks.push(encodeBlock("files", { manifest: collapseHome(manifestFile) }));
@@ -236,7 +232,7 @@ async function setup(args: string[]): Promise<string> {
     ];
   }
 
-  if (showManifest.present) blocks.push(`manifest_yaml: |\n${indent(buildManifest(appName), 2)}`);
+  if (showManifest) blocks.push(`manifest_yaml: |\n${indent(buildManifest(appName), 2)}`);
   blocks.push(renderHelp(help));
   return joinBlocks(...blocks);
 }
@@ -249,15 +245,56 @@ function indent(text: string, spaces: number): string {
     .join("\n");
 }
 
-async function login(args: string[]): Promise<string> {
-  const { value: token, rest } = takeFlag(args, "--token");
-  const { value: teamFlag } = takeFlag(rest, "--team");
-  if (!token) {
-    throw new AxiError("--token is required", "USAGE", [
-      "slack-axi auth login --token xoxp-...",
-      "Run `slack-axi auth setup` to obtain a token",
+/** Read all of stdin. Only called when `--token-stdin` asks for it, so login never blocks on a terminal. */
+function readStdin(): string {
+  return readFileSync(0, "utf-8");
+}
+
+/**
+ * The token for `auth login`, from exactly one place: `--token-stdin`, then `--token`, then the
+ * `SLACK_AXI_TOKEN` environment variable. See specs/commands/auth.md.
+ */
+export function loginToken(
+  flags: { token?: string; stdin: boolean },
+  io: { readStdin: () => string; env: Record<string, string | undefined> },
+): string {
+  if (flags.token !== undefined && flags.stdin) {
+    throw new AxiError("--token and --token-stdin are mutually exclusive", "USAGE", [
+      "Pass only `--token-stdin` and pipe the token in",
     ]);
   }
+  if (flags.stdin) {
+    const piped = io.readStdin().trim();
+    if (piped.length === 0) {
+      throw new AxiError("--token-stdin was given but stdin carried no token", "USAGE", [
+        loginHint(),
+      ]);
+    }
+    return piped;
+  }
+  if (flags.token !== undefined) return flags.token;
+  const env = io.env.SLACK_AXI_TOKEN?.trim();
+  if (env) return env;
+  throw new AxiError("No token given", "USAGE", [
+    loginHint(),
+    "Or set SLACK_AXI_TOKEN in the environment and run `slack-axi auth login`",
+    "Run `slack-axi auth setup` to create a Slack app and obtain a token",
+  ]);
+}
+
+export async function login(
+  args: string[],
+  io: { readStdin: () => string; env: Record<string, string | undefined> } = {
+    readStdin,
+    env: process.env,
+  },
+): Promise<string> {
+  const parsed = parseCommand("auth login", args);
+  const teamFlag = str(parsed, "--team");
+  const token = loginToken(
+    { token: str(parsed, "--token"), stdin: bool(parsed, "--token-stdin") },
+    io,
+  );
 
   let identity;
   try {
@@ -299,7 +336,8 @@ async function login(args: string[]): Promise<string> {
   return joinBlocks(summary, help);
 }
 
-function workspaces(): string {
+function workspaces(args: string[]): string {
+  parseCommand("auth workspaces", args);
   const stored = listWorkspaces();
   if (stored.length === 0) {
     return joinBlocks(
@@ -322,8 +360,7 @@ function workspaces(): string {
 }
 
 function use(args: string[]): string {
-  const team = args.find((a) => !a.startsWith("-"));
-  if (!team) throw new AxiError("usage: slack-axi auth use <team>", "USAGE", []);
+  const team = teamArgument("auth use", args);
   const known = listWorkspaces().some((w) => w.team_id === team);
   if (!known) {
     throw new AxiError(`Workspace ${team} is not authenticated`, "TEAM_NOT_FOUND", [
@@ -340,8 +377,24 @@ function use(args: string[]): string {
 }
 
 function revoke(args: string[]): string {
-  const team = args.find((a) => !a.startsWith("-"));
-  if (!team) throw new AxiError("usage: slack-axi auth revoke <team>", "USAGE", []);
+  const team = teamArgument("auth revoke", args);
   const existed = removeWorkspace(team);
   return encodeBlock("revoked", existed ? team : `${team} (was not stored — no-op)`);
+}
+
+/** The workspace `use`/`revoke` act on: the positional, or `--team <id>` (both spellings are documented). */
+function teamArgument(command: "auth use" | "auth revoke", args: string[]): string {
+  const parsed = parseCommand(command, args);
+  const positional = parsed.positional[0];
+  const flag = str(parsed, "--team");
+  if (positional && flag && positional !== flag) {
+    throw new AxiError(
+      `Two different workspaces given: ${positional} and --team ${flag}`,
+      "USAGE",
+      [`Pass one: \`slack-axi ${command} ${positional}\``],
+    );
+  }
+  const team = positional ?? flag;
+  if (!team) throw usageError(command);
+  return team;
 }

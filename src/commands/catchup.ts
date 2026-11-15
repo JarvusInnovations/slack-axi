@@ -1,5 +1,5 @@
 import { AxiError } from "axi-sdk-js";
-import { takeBool, takeFlag } from "../flags.js";
+import { bool, parseCommand, str } from "../flags.js";
 import {
   anyTruncated,
   encodeObject,
@@ -62,20 +62,23 @@ const DEFAULT_LIMIT_PER = 50;
 export async function catchupCommand(args: string[]): Promise<string> {
   if (args.includes("--help")) return CATCHUP_HELP;
 
-  const team = takeFlag(args, "--team");
-  const since = takeFlag(team.rest, "--since");
-  const from = takeFlag(since.rest, "--from");
-  const to = takeFlag(from.rest, "--to");
-  const tz = takeFlag(to.rest, "--tz");
-  const every = takeFlag(tz.rest, "--every");
-  const type = takeFlag(every.rest, "--type");
-  const match = takeFlag(type.rest, "--match");
-  const inList = takeFlag(match.rest, "--in");
-  const limitPer = takeFlag(inList.rest, "--limit-per");
-  const maxCh = takeFlag(limitPer.rest, "--max-channels");
-  const excludeBots = takeBool(maxCh.rest, "--exclude-bots");
-  const cite = takeBool(excludeBots.rest, "--cite");
-  const full = takeBool(cite.rest, "--full");
+  const parsed = parseCommand("catchup", args);
+  const value = (name: string) => ({ value: str(parsed, name) });
+  const present = (name: string) => ({ present: bool(parsed, name) });
+  const team = value("--team");
+  const since = value("--since");
+  const from = value("--from");
+  const to = value("--to");
+  const tz = value("--tz");
+  const every = value("--every");
+  const type = value("--type");
+  const match = value("--match");
+  const inList = value("--in");
+  const limitPer = value("--limit-per");
+  const maxCh = value("--max-channels");
+  const excludeBots = present("--exclude-bots");
+  const cite = present("--cite");
+  const full = present("--full");
 
   const perCap = posInt(limitPer.value, DEFAULT_LIMIT_PER);
   const maxChannels = posInt(maxCh.value, DEFAULT_MAX_CHANNELS);

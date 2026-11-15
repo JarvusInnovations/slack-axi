@@ -17,7 +17,7 @@ types** — fixing the documented failure where private channels and group DMs w
 - `--match <q>` fuzzy-filters by name (substring; member channels are the default pool, so they rank
   naturally first). This is how you **find a channel** — distinct from message `search` (plan 04).
 - `--limit <n>` caps rows (default 50). When the match set exceeds the limit, output shows
-  `[shown of total]` and a `help[]` hint to narrow or raise `--limit` — never a silent cap.
+  `count: <shown> of <total>` and a `help[]` hint to narrow or raise `--limit` — never a silent cap.
 
 ### `dms [--limit <n>]`
 
@@ -42,8 +42,9 @@ listings feed and refresh `cache/<team>/channels.json`. (`cache refresh` rebuild
 
 Per [output-format.md](../behaviors/output-format.md). Default schema `{id,name,type}` — `name` is the
 display label (`#name`, `@user`, or parsed group-DM participants) and always pairs with the `id`, so
-the HQ `{name,id}` pair lifts directly. Total shown (`channels[50 of 1564]`).
-`--fields is_member,topic,purpose` adds columns. Definitive empty state on zero matches.
+the HQ `{name,id}` pair lifts directly. Total shown in a header field (`count: 50 of 1564`).
+`--fields is_member,topic,purpose` adds columns; any other name is a `VALIDATION_ERROR` listing those
+three. Definitive empty state on zero matches. `dms` and `members` carry the same `count:` field.
 
 **Deferred in v1 (no cheap source):** an `unread`/mention count and most-active sorting are omitted —
 `users.conversations` returns neither, and computing them would require a per-channel
@@ -52,7 +53,8 @@ name. Revisit if a bulk unread source becomes available.
 
 ```
 workspace: Acme (T0ABCDEF)
-channels[50 of 1564]{id,name,type}:
+count: 50 of 1564
+channels[50]{id,name,type}:
   C0123ABCD,#general,public
   CHVBC6KLH,#some-private,private
   C0125N74FU1,"alice, bob, carol",mpim
@@ -72,7 +74,7 @@ None (read-only). Resolution side-effect: refreshes the channel cache.
 
 - [Resolve identity for the agent](../principles.md#resolve-identity-for-the-agent) — name+id pairing
   and all-types defaulting serve it.
-- [Never silently truncate](../principles.md#never-silently-truncate) — the `[shown of total]` count
+- [Never silently truncate](../principles.md#never-silently-truncate) — the `count: shown of total` field
   and `--limit` hint keep the default cap explicit.
 - [Read is for windows, search is for finding](../principles.md#read-is-for-windows-search-is-for-finding)
   — `--match` finds a channel; it does not read messages.

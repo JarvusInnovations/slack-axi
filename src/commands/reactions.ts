@@ -1,5 +1,5 @@
 import { AxiError } from "axi-sdk-js";
-import { takeFlag } from "../flags.js";
+import { parseCommand, str, usageError } from "../flags.js";
 import { encodeObject, joinBlocks, renderList, truncate } from "../output.js";
 import { activeSession } from "../session.js";
 import { ensureUsers, allCachedUsers } from "../slack/cache.js";
@@ -19,15 +19,15 @@ examples:
 
 export async function reactionsCommand(args: string[]): Promise<string> {
   if (args.includes("--help")) return REACTIONS_HELP;
-  const team = takeFlag(args, "--team");
-  const [channelArg, tsArg] = team.rest.filter((a) => !a.startsWith("-"));
+  const parsed = parseCommand("reactions", args);
+  const [channelArg, tsArg] = parsed.positional;
   if (!channelArg || !tsArg) {
-    throw new AxiError("usage: slack-axi reactions <channel> <ts>", "USAGE", [
+    throw usageError("reactions", [
       "Pass a channel and a ts handle from a `read`/`search`/`thread` row",
     ]);
   }
 
-  const session = await activeSession({ teamFlag: team.value });
+  const session = await activeSession({ teamFlag: str(parsed, "--team") });
   const channel = await resolveChannel(session, channelArg);
   const ts = dottedTs(tsArg);
 

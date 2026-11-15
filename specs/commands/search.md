@@ -72,8 +72,8 @@ knows the filter is imprecise.
 Both endpoints expose `paging: {page, pages, total}`. The sweep walks pages to completion at
 `sort: timestamp`, `sort_dir: asc` (oldest→newest), stopping when pages are exhausted, `--limit` is
 reached, or the `1000`-match runaway ceiling is hit. **Default is exhaustive** (no `--limit` = all).
-The header carries `complete: true|false` and the list a `<retrieved> of <total>` count, mirroring
-`read`. If the ceiling stops the sweep, a `note:` says so. Each match already includes its `permalink`,
+The header carries `complete: true|false` and a `count: <retrieved> of <total>` field (see
+[output-format.md → Aggregates](../behaviors/output-format.md#aggregates)). If the ceiling stops the sweep, a `note:` says so. Each match already includes its `permalink`,
 so `--cite` adds it with no extra call (file matches always carry a permalink).
 
 ## Output Rules
@@ -98,7 +98,8 @@ workspace: Acme (T01ABC)
 query: "token refresh" in:#eng
 coverage: @alice (U0A) — only conversations you belong to
 complete: true
-matches[7 of 7]{channel,author,when,text,ts}:
+count: 7 of 7
+matches[7]{channel,author,when,text,ts}:
   #eng (C0B),bob,2026-06-05 09:15,"did the token refresh land?",1717589700234567
 help[2]:
   To read a result's channel over a window, use `slack-axi read #eng --from 2026-06-05 --to 2026-06-06`

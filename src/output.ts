@@ -22,18 +22,21 @@ export function encodeObject(value: Record<string, unknown>): string {
   return encode(value);
 }
 
-/** Render a list of already-flat rows under a labeled TOON array with a count header. */
+/**
+ * Render a list of already-flat rows under a labeled TOON array. The array header always carries the
+ * number of rows present. For a list that can be capped or filtered, pass `total` and a
+ * `count: N of M` header field is printed above it (`qualifier` reads `count: N pending of M`).
+ * See specs/behaviors/output-format.md → Aggregates.
+ */
 export function renderList(
   label: string,
   rows: Array<Record<string, unknown>>,
-  options: { total?: number } = {},
+  options: { total?: number; qualifier?: string } = {},
 ): string {
-  const total = options.total ?? rows.length;
-  const header =
-    total === rows.length ? `${label}[${rows.length}]` : `${label}[${rows.length} of ${total}]`;
-  // Encode under a placeholder label, then swap in our count-annotated header.
-  const encoded = encode({ [label]: rows });
-  return encoded.replace(new RegExp(`^${label}\\[${rows.length}\\]`), header);
+  const list = encode({ [label]: rows });
+  if (options.total === undefined) return list;
+  const shown = options.qualifier ? `${rows.length} ${options.qualifier}` : String(rows.length);
+  return `count: ${shown} of ${options.total}\n${list}`;
 }
 
 /**

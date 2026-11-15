@@ -1,5 +1,5 @@
 import { AxiError } from "axi-sdk-js";
-import { takeFlag } from "../flags.js";
+import { parseCommand, str, usageError } from "../flags.js";
 import { encodeObject, joinBlocks, renderHelp, renderList } from "../output.js";
 import { activeSession, type Session } from "../session.js";
 import { allCachedUsers, ensureUsers, fetchUserInfo, type UserMeta } from "../slack/cache.js";
@@ -19,15 +19,13 @@ const USER_ID_RE = /^[UW][A-Z0-9]{6,}$/;
 
 export async function userCommand(args: string[]): Promise<string> {
   if (args.includes("--help")) return USER_HELP;
-  const team = takeFlag(args, "--team");
-  const targets = team.rest.filter((a) => !a.startsWith("-"));
+  const parsed = parseCommand("user", args);
+  const targets = parsed.positional;
   if (targets.length === 0) {
-    throw new AxiError("usage: slack-axi user <id|@handle> [more...]", "USAGE", [
-      "Pass one or more user ids (U…) or @handles",
-    ]);
+    throw usageError("user", ["Pass one or more user ids (U…) or @handles"]);
   }
 
-  const session = await activeSession({ teamFlag: team.value });
+  const session = await activeSession({ teamFlag: str(parsed, "--team") });
   await ensureUsers(session); // roster needed to resolve bare @handles
   const cache = allCachedUsers(session.teamId);
 
@@ -69,7 +67,7 @@ export async function userCommand(args: string[]): Promise<string> {
 
   return joinBlocks(
     encodeObject({ workspace: `${session.teamName ?? session.teamId} (${session.teamId})` }),
-    renderList("users", rows, { total: resolved.length }),
+    renderList("users", rows),
     renderHelp(help),
   );
 }
