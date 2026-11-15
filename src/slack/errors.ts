@@ -1,4 +1,5 @@
 import { AxiError } from "axi-sdk-js";
+import { loginHint } from "../hints.js";
 import { addScopesHelp } from "./scopes.js";
 
 /**
@@ -9,18 +10,18 @@ export function slackErrorToAxi(
   code: string,
   context: { team?: string; channel?: string } = {},
 ): AxiError {
-  const teamFlag = context.team ? ` --team ${context.team}` : "";
   switch (code) {
     case "invalid_auth":
     case "token_revoked":
     case "token_expired":
     case "account_inactive":
       return new AxiError("Slack token is invalid or revoked", "AUTH_INVALID", [
-        `Run \`slack-axi auth login${teamFlag} --token xoxp-...\` to store a valid token`,
+        loginHint(context.team),
       ]);
     case "not_authed":
       return new AxiError("No Slack token was supplied", "NO_TOKEN", [
-        "Set SLACK_AXI_TOKEN or run `slack-axi auth login`",
+        "Set SLACK_AXI_TOKEN in the environment",
+        loginHint(),
       ]);
     case "missing_scope":
       return new AxiError("Token is missing a required scope", "SCOPE_MISSING", addScopesHelp([]));

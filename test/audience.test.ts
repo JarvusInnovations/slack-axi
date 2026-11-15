@@ -512,9 +512,15 @@ describe("audience — errors", () => {
 describe("audience — argument validation (before any Slack call)", () => {
   it("rejects an unknown flag and lists the valid ones", async () => {
     const err = await errorOf(audienceCommand(["C0CHAN001", "--member"]));
-    expect(err.code).toBe("USAGE");
+    expect(err.code).toBe("UNKNOWN_FLAG");
     expect(err.message).toContain("--member");
-    expect(err.suggestions[0]).toContain("--members, --max-members <n>, --team <id>");
+    expect(err.suggestions[0]).toBe(
+      "valid flags for `audience`: --max-members, --members (--help and --team always allowed)",
+    );
+  });
+
+  it("rejects a short flag: there are none", async () => {
+    expect((await errorOf(audienceCommand(["C0CHAN001", "-m"]))).code).toBe("UNKNOWN_FLAG");
   });
 
   it("requires exactly one channel", async () => {

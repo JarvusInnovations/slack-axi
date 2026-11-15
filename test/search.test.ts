@@ -2,7 +2,7 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { takeFlags } from "../src/flags.js";
+import { multiStr, parseCommand, str } from "../src/flags.js";
 import {
   messageRow,
   paginate,
@@ -13,19 +13,17 @@ import {
 import { resolveUserId } from "../src/slack/resolve.js";
 import type { Session } from "../src/session.js";
 
-describe("takeFlags (repeatable)", () => {
+describe("repeatable search flags", () => {
   it("collects every occurrence and leaves the rest", () => {
-    const r = takeFlags(["--has", "link", "--has", "file", "--in", "#eng"], "--has");
-    expect(r.values).toEqual(["link", "file"]);
-    expect(r.rest).toEqual(["--in", "#eng"]);
+    const r = parseCommand("search", ["--has", "link", "--has", "file", "--in", "#eng"]);
+    expect(multiStr(r, "--has")).toEqual(["link", "file"]);
+    expect(str(r, "--in")).toBe("#eng");
   });
   it("returns empty values when absent", () => {
-    const r = takeFlags(["--in", "#eng"], "--has");
-    expect(r.values).toEqual([]);
-    expect(r.rest).toEqual(["--in", "#eng"]);
+    expect(multiStr(parseCommand("search", ["--in", "#eng"]), "--has")).toEqual([]);
   });
   it("refuses a trailing flag with no value instead of ignoring it", () => {
-    expect(() => takeFlags(["--has"], "--has")).toThrow(/--has needs a value/);
+    expect(() => parseCommand("search", ["--has"])).toThrow(/--has needs a value/);
   });
 });
 
@@ -143,9 +141,10 @@ describe("searchCommand — query optional when a filter narrows", () => {
     await expect(searchCommand(["-staging"])).rejects.toMatchObject({ code: "NO_TOKEN" });
   });
   it("refuses a misspelled long flag instead of dropping it", async () => {
-    await expect(searchCommand(["deploy", "--frmo", "alice"])).rejects.toMatchObject({
-      code: "USAGE",
-    });
+    const err = await searchCommand(["deploy", "--frmo", "alice"]).catch((e) => e);
+    expect(err).toMatchObject({ code: "UNKNOWN_FLAG" });
+    expect(err.suggestions[0]).toContain("valid flags for `search`: --after, --before,");
+    expect(err.suggestions[0]).toContain("(--help and --team always allowed)");
   });
 
   it("documents filters-only search in --help", async () => {

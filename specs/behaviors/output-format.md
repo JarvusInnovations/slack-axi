@@ -23,8 +23,9 @@ Every command. The shared `output/render.ts` + `output/schema.ts` modules implem
   `{id,name,type,unread}`; messages → `{time,author,text,ts}`; search hits →
   `{channel,author,when,text,ts}`. The `ts` is the compact citation handle, not the full permalink —
   permalinks are opt-in (`--cite`) or on-demand (`cite`); see [permalinks.md](permalinks.md).
-- A `--fields <a,b,c>` flag adds columns. Unknown field names are silently ignored (lenient), per AXI
-  convention. Known extras per command are listed in that command's spec.
+- A `--fields <a,b,c>` flag adds columns. An unknown field name is a `VALIDATION_ERROR` (exit 2) that
+  lists the valid names, raised before any Slack call: ignoring it would hand back a table missing a
+  column the agent asked for. Known extras per command are listed in that command's spec.
 - Long-form content (full message bodies, channel purpose/topic) belongs in detail views, not list
   rows.
 
@@ -43,9 +44,14 @@ Every command. The shared `output/render.ts` + `output/schema.ts` modules implem
 
 ### Aggregates
 
-- Every list header carries the **total**, not just the page size: `messages[12 of 12]`,
-  `channels[5 of 47]`. Derived counts the agent would otherwise fetch (`reply_count`, `unread`,
-  `member_count`) are included inline where the backend provides them cheaply.
+- Every list that can be capped or filtered says how much of the whole it shows, in a `count:` header
+  field on the line above the array: `count: 5 of 47`, then `channels[5]{…}:`. The number in the TOON
+  array header is always the number of rows actually present — never a total — so the output stays
+  valid TOON. `count:` is printed even when nothing was cut (`count: 12 of 12`). A filtered view may
+  qualify the first number (`count: 2 pending of 46`). Lists that are complete by construction
+  (`citations`, `reactions`, `checks`, `attachments`) carry no `count:`.
+- Derived counts the agent would otherwise fetch (`reply_count`, `unread`, `member_count`) are
+  included inline where the backend provides them cheaply.
 
 ### Empty states
 
@@ -64,7 +70,7 @@ Every command. The shared `output/render.ts` + `output/schema.ts` modules implem
 HQ ingestion routinely discards automation chatter (standup-bot prompts, deploy notifications, routine
 PR-link posts). `read` supports `--exclude-bots` to drop messages from bot/app users, and the schema
 exposes an `is_bot`/`subtype` signal so an agent can filter itself. Off by default (never hide content
-silently); when on, the count reflects what was filtered (`messages[8 of 12, 4 bot-filtered]`).
+silently); when on, a `bot_filtered: 4` header field says how many were dropped.
 
 ## Principles
 

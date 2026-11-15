@@ -31,6 +31,12 @@ and `slack/client.ts` (WebClient per team).
   exactly that fix, and never says to log in again. Granted scopes are read live from `auth.test`, so
   the change shows up on the next run.
 
+### Getting a token in
+
+Keep the token off the command line. The two documented ways are the `SLACK_AXI_TOKEN` environment
+variable (nothing stored; see below) and `slack-axi auth login --token-stdin` (stored). `--token
+<value>` still works but is not what hints or docs show. See [auth.md](../commands/auth.md).
+
 ### Token resolution order
 
 1. `SLACK_AXI_TOKEN` env (with `SLACK_AXI_TEAM` to select workspace when ambiguous). **No interactive

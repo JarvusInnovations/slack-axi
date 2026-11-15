@@ -12,10 +12,11 @@ import {
   firstLine,
   isOwnMessage,
   renderOutgoing,
-  takeAttachments,
-  takePostFlags,
+  postFlags,
+  requestedAttachments,
   unfurlArgs,
 } from "../src/commands/write.js";
+import { parseCommand } from "../src/flags.js";
 import { writeDraft } from "../src/config.js";
 import type { Session } from "../src/session.js";
 import { fetchMessage } from "../src/slack/threads.js";
@@ -121,12 +122,23 @@ describe("edit/delete validation happens before any network call", () => {
     await expect(deleteCommand(["d_0badcafe"])).rejects.toMatchObject({ code: "DRAFT_NOT_SENT" });
   });
   it("edit/delete refuse attachment flags before any network call", async () => {
-    await expect(
-      editCommand(["#eng", "1717589640123456", "new", "--file", "a.png"]),
-    ).rejects.toMatchObject({ code: "USAGE" });
-    await expect(
-      deleteCommand(["#eng", "1717589640123456", "--snippet", "q.sql"]),
-    ).rejects.toMatchObject({ code: "USAGE" });
+    const edit = await editCommand(["#eng", "1717589640123456", "new", "--file", "a.png"]).catch(
+      (e) => e,
+    );
+    expect(edit).toMatchObject({ code: "UNKNOWN_FLAG" });
+    // The targeted hint replaces the flag list, and fires even when the flag is given bare.
+    expect(edit.suggestions[0]).toContain("cannot add or change attachments");
+    await expect(deleteCommand(["#eng", "1717589640123456", "--snippet"])).rejects.toMatchObject({
+      code: "UNKNOWN_FLAG",
+    });
+  });
+  it("delete refuses a stray argument instead of dropping it", async () => {
+    await expect(deleteCommand(["#eng", "1717589640123456", "extra"])).rejects.toMatchObject({
+      code: "USAGE",
+    });
+    await expect(deleteCommand(["#eng", "1717589640123456", "--raw"])).rejects.toMatchObject({
+      code: "UNKNOWN_FLAG",
+    });
   });
   it("draft with a missing attachment path fails before auth", async () => {
     await expect(
@@ -154,9 +166,32 @@ describe("edit/delete validation happens before any network call", () => {
     ).rejects.toMatchObject({ code: "NO_TOKEN" });
   });
   it("a misspelled unfurl flag is refused, not taken as text", async () => {
-    await expect(draftCommand(["#eng", "hi", "--no-unfurls"])).rejects.toMatchObject({
+    const err = await draftCommand(["#eng", "hi", "--no-unfurls"]).catch((e) => e);
+    expect(err).toMatchObject({ code: "UNKNOWN_FLAG" });
+    expect(err.suggestions[0]).toContain("--no-unfurl,");
+  });
+  it("draft send/discard/list refuse stray arguments and --team", async () => {
+    await expect(draftCommand(["send", "d_00000000", "extra"])).rejects.toMatchObject({
       code: "USAGE",
     });
+    const err = await draftCommand(["list", "--team", "T1"]).catch((e) => e);
+    expect(err).toMatchObject({ code: "UNKNOWN_FLAG" });
+    expect(err.suggestions[0]).toBe("valid flags for `draft list`: --all (--help always allowed)");
+  });
+  it("draft list puts the totals in a count: field, not the array header", async () => {
+    const base = { team: "T1", channel_id: "C1", channel: "#eng", text: "x", created_at: "" };
+    writeDraft({ ...base, id: "d_00000001", markdown: "one" });
+    writeDraft({
+      ...base,
+      id: "d_00000002",
+      markdown: "two",
+      sent: { ts: "1.2", permalink: "", at: "" },
+    });
+    const pending = await draftCommand(["list"]);
+    expect(pending).toContain("count: 1 pending of 2\ndrafts[1]{");
+    const all = await draftCommand(["list", "--all"]);
+    expect(all).toContain("count: 2 of 2\ndrafts[2]{");
+    expect(all).not.toMatch(/drafts\[\d+ /);
   });
   it("--help lists --no-unfurl on draft and edit", async () => {
     expect(await draftCommand(["--help"])).toContain("--no-unfurl");
@@ -235,21 +270,17 @@ describe("renderOutgoing / describeOutgoing", () => {
   });
 });
 
-describe("takePostFlags", () => {
-  it("takes --raw, --preview and --no-unfurl in any position and leaves the text", () => {
-    expect(takePostFlags(["#eng", "--no-unfurl", "hi", "--raw"])).toEqual({
-      raw: true,
-      preview: false,
-      noUnfurl: true,
-      rest: ["#eng", "hi"],
-    });
+describe("postFlags", () => {
+  it("reads --raw, --preview and --no-unfurl in any position and leaves the text", () => {
+    const parsed = parseCommand("draft", ["#eng", "--no-unfurl", "hi", "--raw"]);
+    expect(postFlags(parsed)).toEqual({ raw: true, preview: false, noUnfurl: true });
+    expect(parsed.positional).toEqual(["#eng", "hi"]);
   });
   it("defaults every flag to off", () => {
-    expect(takePostFlags(["#eng", "hi"])).toEqual({
+    expect(postFlags(parseCommand("draft", ["#eng", "hi"]))).toEqual({
       raw: false,
       preview: false,
       noUnfurl: false,
-      rest: ["#eng", "hi"],
     });
   });
   it("unfurlArgs turns both unfurls off only for a --no-unfurl draft", () => {
@@ -258,36 +289,33 @@ describe("takePostFlags", () => {
   });
 });
 
-describe("takeAttachments", () => {
-  it("collects --file/--snippet in order and leaves the rest", () => {
-    expect(
-      takeAttachments([
-        "#eng",
-        "--file",
-        "a.png",
-        "hi",
-        "--snippet",
-        "q.sql",
-        "--raw",
-        "--file",
-        "b.pdf",
-      ]),
-    ).toEqual({
-      requested: [
-        { kind: "file", path: "a.png" },
-        { kind: "snippet", path: "q.sql" },
-        { kind: "file", path: "b.pdf" },
-      ],
-      rest: ["#eng", "hi", "--raw"],
-    });
+describe("requestedAttachments", () => {
+  it("collects --file/--snippet in the order given across both flags, and leaves the rest", () => {
+    const parsed = parseCommand("draft", [
+      "#eng",
+      "--file",
+      "a.png",
+      "hi",
+      "--snippet",
+      "q.sql",
+      "--raw",
+      "--file",
+      "b.pdf",
+    ]);
+    expect(requestedAttachments(parsed)).toEqual([
+      { kind: "file", path: "a.png" },
+      { kind: "snippet", path: "q.sql" },
+      { kind: "file", path: "b.pdf" },
+    ]);
+    expect(parsed.positional).toEqual(["#eng", "hi"]);
   });
   it("refuses an attachment flag with no path instead of dropping it", () => {
-    expect(() => takeAttachments(["#eng", "hi", "--file"])).toThrow(/--file needs a path/);
-    expect(() => takeAttachments(["#eng", "--snippet"])).toThrow(/--snippet needs a path/);
+    expect(() => parseCommand("draft", ["#eng", "hi", "--file"])).toThrow(/--file needs a value/);
+    expect(() => parseCommand("draft", ["#eng", "--snippet"])).toThrow(/--snippet needs a value/);
   });
   it("refuses to swallow the next flag as a path", () => {
-    expect(() => takeAttachments(["#eng", "hi", "--file", "--preview"])).toThrow(
-      /--file needs a path/,
+    expect(() => parseCommand("draft", ["#eng", "hi", "--file", "--preview"])).toThrow(
+      /--file needs a value/,
     );
   });
 });

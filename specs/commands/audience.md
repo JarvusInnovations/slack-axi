@@ -18,9 +18,10 @@ slack-axi audience <channel> [--members] [--max-members <n>] [--team <id>]
 - `--members` lists every checked member with its flags, in place of the non-full-members list.
 - `--max-members <n>` (default **200**) bounds how many members are paged and looked up. Past it the
   command stops paging and says so (see Output Rules). It must be a positive integer.
-- Exactly one channel argument. A missing one, a second one, an unknown flag or a bad
-  `--max-members` value is a `USAGE` error raised before any Slack call, and the unknown-flag error
-  lists this command's valid flags.
+- Exactly one channel argument. A missing one, a second one or a bad `--max-members` value is a
+  `USAGE` error, and an unknown flag is `UNKNOWN_FLAG` listing this command's valid flags (see
+  [errors.md → Declared flags](../behaviors/errors.md#declared-flags)). All are raised before any
+  Slack call.
 - No JSON output mode: no other slack-axi command has one, so this one doesn't either.
 
 ## Data Requirements

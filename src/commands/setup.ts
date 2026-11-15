@@ -1,4 +1,5 @@
 import { AxiError, installSessionStartHooks } from "axi-sdk-js";
+import { parseCommand } from "../flags.js";
 import { encodeBlock, joinBlocks, renderHelp } from "../output.js";
 
 export const SETUP_HELP = `usage: slack-axi setup hooks
@@ -14,6 +15,7 @@ export async function setupCommand(args: string[]): Promise<string> {
       "Run `slack-axi setup hooks`",
     ]);
   }
+  parseCommand("setup hooks", args.slice(1));
 
   const errors: string[] = [];
   installSessionStartHooks({

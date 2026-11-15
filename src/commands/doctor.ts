@@ -1,5 +1,5 @@
 import { resolveActiveToken } from "../config.js";
-import { takeFlag } from "../flags.js";
+import { parseCommand, str } from "../flags.js";
 import { encodeBlock, joinBlocks, renderHelp, renderList } from "../output.js";
 import { validateToken, webClient } from "../slack/client.js";
 import { toAxiError } from "../slack/errors.js";
@@ -11,7 +11,7 @@ Exit 1 if any check fails; warnings (e.g. a missing scope) keep exit 0.`;
 
 export async function doctorCommand(args: string[]): Promise<string> {
   if (args.includes("--help")) return DOCTOR_HELP;
-  const { value: teamFlag } = takeFlag(args, "--team");
+  const teamFlag = str(parseCommand("doctor", args), "--team");
 
   const active = resolveActiveToken({ teamFlag });
   const checks: Array<Record<string, unknown>> = [];

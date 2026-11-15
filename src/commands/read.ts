@@ -1,5 +1,5 @@
 import { AxiError } from "axi-sdk-js";
-import { takeBool, takeFlag } from "../flags.js";
+import { bool, parseCommand, str, usageError } from "../flags.js";
 import {
   anyTruncated,
   encodeObject,
@@ -46,8 +46,10 @@ examples:
   slack-axi read #eng --from 2026-04-23 --to 2026-04-29
   slack-axi read #eng --since 24h --threads summary`;
 
-export const THREAD_HELP = `usage: slack-axi thread <channel> <ts>
-Reads a single thread fully (parent + all replies), names + permalinks resolved.`;
+export const THREAD_HELP = `usage: slack-axi thread <channel> <ts> [--full]
+Reads a single thread fully (parent + all replies), names + permalinks resolved.
+flags[1]:
+  --full   Don't truncate message text`;
 
 const DEFAULT_LIMIT = 50;
 
@@ -56,7 +58,7 @@ type ThreadMode = "full" | "summary" | "none";
 export async function readCommand(args: string[]): Promise<string> {
   if (args.includes("--help")) return READ_HELP;
   const f = parseReadFlags(args);
-  if (!f.channel) throw new AxiError("usage: slack-axi read <channel> [flags]", "USAGE", []);
+  if (!f.channel) throw usageError("read");
 
   const session = await activeSession({ teamFlag: f.team });
   const channel = await resolveChannel(session, f.channel);
@@ -165,13 +167,12 @@ export async function readCommand(args: string[]): Promise<string> {
 
 export async function threadCommand(args: string[]): Promise<string> {
   if (args.includes("--help")) return THREAD_HELP;
-  const team = takeFlag(args, "--team");
-  const full = takeBool(team.rest, "--full");
-  const positional = full.rest.filter((a) => !a.startsWith("-"));
-  const [target, ts] = positional;
-  if (!target || !ts) throw new AxiError("usage: slack-axi thread <channel> <ts>", "USAGE", []);
+  const parsed = parseCommand("thread", args);
+  const full = { present: bool(parsed, "--full") };
+  const [target, ts] = parsed.positional;
+  if (!target || !ts) throw usageError("thread");
 
-  const session = await activeSession({ teamFlag: team.value });
+  const session = await activeSession({ teamFlag: str(parsed, "--team") });
   const channel = await resolveChannel(session, target);
   const msgs = await fetchThread(session, channel.id, dottedTs(ts));
   if (msgs.length === 0)
@@ -237,36 +238,26 @@ interface ReadFlags {
 }
 
 function parseReadFlags(args: string[]): ReadFlags {
-  const team = takeFlag(args, "--team");
-  const since = takeFlag(team.rest, "--since");
-  const from = takeFlag(since.rest, "--from");
-  const to = takeFlag(from.rest, "--to");
-  const tz = takeFlag(to.rest, "--tz");
-  const limit = takeFlag(tz.rest, "--limit");
-  const threads = takeFlag(limit.rest, "--threads");
-  const excludeBots = takeBool(threads.rest, "--exclude-bots");
-  const cite = takeBool(excludeBots.rest, "--cite");
-  const full = takeBool(cite.rest, "--full");
-  const channel = full.rest.find((a) => !a.startsWith("-"));
-  const mode = (threads.value ?? "full") as ThreadMode;
+  const parsed = parseCommand("read", args);
+  const threads = str(parsed, "--threads");
+  const mode = (threads ?? "full") as ThreadMode;
   if (!["full", "summary", "none"].includes(mode)) {
-    throw new AxiError(`Invalid --threads '${threads.value}'`, "USAGE", [
-      "Use: full | summary | none",
-    ]);
+    throw new AxiError(`Invalid --threads '${threads}'`, "USAGE", ["Use: full | summary | none"]);
   }
-  const lim = limit.value ? Number.parseInt(limit.value, 10) : DEFAULT_LIMIT;
+  const limit = str(parsed, "--limit");
+  const lim = limit ? Number.parseInt(limit, 10) : DEFAULT_LIMIT;
   return {
-    team: team.value,
-    channel,
-    since: since.value,
-    from: from.value,
-    to: to.value,
-    tz: tz.value,
+    team: str(parsed, "--team"),
+    channel: parsed.positional[0],
+    since: str(parsed, "--since"),
+    from: str(parsed, "--from"),
+    to: str(parsed, "--to"),
+    tz: str(parsed, "--tz"),
     limit: Number.isFinite(lim) && lim > 0 ? lim : DEFAULT_LIMIT,
     threads: mode,
-    excludeBots: excludeBots.present,
-    cite: cite.present,
-    full: full.present,
+    excludeBots: bool(parsed, "--exclude-bots"),
+    cite: bool(parsed, "--cite"),
+    full: bool(parsed, "--full"),
   };
 }
 

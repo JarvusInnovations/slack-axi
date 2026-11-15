@@ -87,7 +87,9 @@ Read/search rows carry a compact `ts` handle, not a full permalink. To turn hand
 ## Setup (once per workspace)
 
 - `npx -y slack-axi auth setup` — generates an app manifest (all scopes pre-filled, token rotation off)
-  and walks you through creating + installing a Slack app, then `auth login --token xoxp-…`.
+  and walks you through creating + installing a Slack app. Then the user stores the token with
+  `read -rs T && printf %s "$T" | slack-axi auth login --token-stdin; unset T` (keeps it out of shell
+  history), or sets `SLACK_AXI_TOKEN` in the environment. Don't ask for the token on the command line.
 - After an upgrade that adds a required scope, `doctor` and `auth setup` name the missing scope. The fix
   is a human step: add the scope under the app's OAuth & Permissions → User Token Scopes, then click
   Reinstall to Workspace. The token stays the same, so don't ask for a new one or re-run `auth login`.
@@ -122,3 +124,11 @@ Read/search rows carry a compact `ts` handle, not a full permalink. To turn hand
   `edit <sent-draft-id>` or `delete <sent-draft-id>`.
 - Flags that take a value fail with `USAGE` if the value is missing, and text may start with `-` (a
   Markdown list item is fine); a misspelled `--flag` is refused rather than ignored.
+
+## Errors and counts
+
+- A wrong invocation exits **2**: an unknown flag (`UNKNOWN_FLAG`, with the command's valid flags in
+  `help[]`), a missing or extra argument (`USAGE`), an unknown `--fields` name (`VALIDATION_ERROR`).
+  A failed operation (no token, not found, Slack error) exits 1.
+- A capped list says how much it shows in a `count: N of M` line above the array; the number in
+  `channels[N]{…}` is only the rows present.

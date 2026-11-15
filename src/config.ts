@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { AxiError } from "axi-sdk-js";
+import { loginHint } from "./hints.js";
 
 /** A stored user token for one workspace (team). Written at `auth login`. */
 export interface StoredToken {
@@ -276,7 +277,7 @@ export function resolveActiveToken(options: {
   if (ids.length === 0) {
     throw new AxiError("No Slack token available", "NO_TOKEN", [
       "Set SLACK_AXI_TOKEN, or run `slack-axi auth setup` to create an app and store a token",
-      "Then `slack-axi auth login --token xoxp-...`",
+      loginHint(),
     ]);
   }
 
