@@ -31,8 +31,16 @@ slack-axi auth setup            # guided: create a Slack app from a manifest, th
 ```
 
 `auth setup` generates an app manifest with all required user-token scopes pre-filled (and token
-rotation disabled), walks you through creating + installing the app, then `auth login --token xoxp-…`.
-Run `slack-axi doctor` to verify auth and scope coverage.
+rotation disabled), and walks you through creating + installing the app. Then store the token without
+putting it in your shell history:
+
+```sh
+read -rs T && printf %s "$T" | slack-axi auth login --token-stdin; unset T   # paste at the silent prompt
+```
+
+Or skip storing it and set `SLACK_AXI_TOKEN` in the environment (`slack-axi auth login` with no flag
+stores that token). `auth login --token xoxp-…` still works, but the token then shows in shell history
+and the process list. Run `slack-axi doctor` to verify auth and scope coverage.
 
 **Upgrading:** a release can add a required scope (for example `files:write`, for draft attachments).
 `doctor` and `auth setup` name any missing scope. To add it, open your app at
