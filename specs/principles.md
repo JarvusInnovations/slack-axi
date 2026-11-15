@@ -19,8 +19,8 @@ between a terse header and one that re-states the resolved dates, always re-stat
 ## Never silently truncate
 
 A result the agent can't tell is partial is worse than an error. Every bounded list **declares its
-completeness**: a `complete: true|false` marker and a total count (`messages[12 of 12]`,
-`channels[5 of 47]`). Pagination over a bounded window runs **to completion** internally, in a stable
+completeness**: a `complete: true|false` marker and a total count in a header field
+(`count: 5 of 47` above `channels[5]{…}:`). Pagination over a bounded window runs **to completion** internally, in a stable
 documented order, rather than returning page one and stopping. If a hard cap is ever applied, it is
 stated in output — never silent.
 

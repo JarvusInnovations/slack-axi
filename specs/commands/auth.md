@@ -24,7 +24,7 @@ Two steps:
    "From an app manifest", pick the workspace, paste `manifest.yaml`. Confirm with
    `slack-axi auth setup --confirm-step app_created`.
 2. **`token_stored`** (derived) — install the app (OAuth & Permissions → Install to Workspace), copy
-   the User OAuth Token, and run `slack-axi auth login --token xoxp-…`. A stored workspace token marks
+   the User OAuth Token, and pipe it to `slack-axi auth login --token-stdin`. A stored workspace token marks
    this step complete; it is never manually confirmed.
 
 A stored token is proof the app exists and is installed, so it **subsumes the `app_created`
@@ -46,7 +46,26 @@ No OAuth loopback / no `--no-wait`/`--wait` split — the user pastes a token, w
 gws-axi's loopback. Progress is tracked in `setup.json` at the config root (global onboarding state —
 there is no team id until login). See [architecture.md](../architecture.md) for the storage layout.
 
-### `auth login --token <xoxp-…> [--team <id>]`
+### `auth login [--token-stdin | --token <xoxp-…>] [--team <id>]`
+
+The token comes from exactly one place, checked in this order:
+
+1. **`--token-stdin`** — read from standard input (surrounding whitespace trimmed). This is the
+   documented default, because a token on the command line lands in shell history and the process
+   list. Stdin is read only when this flag is given, so the command never blocks on a terminal.
+   Every hint that tells the user to log in shows the portable form:
+
+   ```
+   read -rs T && printf %s "$T" | slack-axi auth login --token-stdin; unset T
+   ```
+
+2. **`--token <value>`** — kept for convenience and for existing scripts.
+3. **`SLACK_AXI_TOKEN`** — when neither flag is given, the environment variable's token is validated
+   and stored.
+
+`--token` together with `--token-stdin` is a `USAGE` error. No token from any source (including an
+empty stdin) is a `USAGE` error whose help shows the stdin pipe and the environment form. The token is
+never echoed.
 
 Validates the token via `auth.test`, derives `team`, `team_name`, `user_id`, `bot_id` (bot tokens),
 and granted `scopes` — the **mode** follows from `bot_id` or the `xoxb-` prefix (`bot` when either, else `human`; see

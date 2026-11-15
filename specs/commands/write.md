@@ -68,8 +68,8 @@ change anything in Slack. The target is a channel + `ts` handle (dotless or dott
 draft this tool already sent (its recorded channel + ts are the target — "fix what I just said"
 without hunting for the ts). The new text is Markdown and is rendered exactly as `draft` renders
 (`--raw`/`--preview` behave the same); a bot-mode edit whose rendering needs more than one chunk is
-refused with `TOO_LONG_FOR_EDIT`. `--file`/`--snippet` are refused with `USAGE`: Slack cannot change
-a message's files in an edit. `--no-unfurl` removes the message's existing link/media previews:
+refused with `TOO_LONG_FOR_EDIT`. `--file`/`--snippet` are refused with `UNKNOWN_FLAG` and a hint to
+delete and re-post: Slack cannot change a message's files in an edit. `--no-unfurl` removes the message's existing link/media previews:
 `chat.update` takes no `unfurl_*` parameters, and a message's unfurls are its `attachments`, so the
 edit is applied with `attachments: []` as well. Without the flag `attachments` is not sent and any
 previews stay. The echo and `--preview` add `unfurl: off (previews removed)`.
@@ -126,8 +126,8 @@ can replace only one message — delete and re-post, or edit a single chunk by `
 ### `draft list [--all]` / `draft discard <id>`
 
 List drafts; discard one. By default `draft list` shows only **pending** drafts (not yet sent or
-applied) — the ones an agent can still act on — with a header that states both counts
-(`drafts[2 pending of 46]`) so the filtered view is never mistaken for the whole history; `--all`
+applied) — the ones an agent can still act on — with a header field that states both counts
+(`count: 2 pending of 46`, above `drafts[2]{…}:`) so the filtered view is never mistaken for the whole history; `--all`
 includes sent and applied drafts. With nothing pending, the empty state says how many were already
 sent and points at `--all`. The list shows each draft's kind (`post`, `edit`, `delete`) and status;
 a draft made with `--no-unfurl` has `, no unfurl` appended to its status.
