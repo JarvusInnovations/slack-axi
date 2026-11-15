@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 depends: [17-conversation-audience]
 specs:
   - specs/behaviors/errors.md
@@ -62,22 +62,44 @@ bump; `setup hooks status|uninstall|--scope`.
 
 ## Validation
 
-- [ ] `bun run lint`, `format:check`, `typecheck`, `build`, `test` all clean.
-- [ ] A sweep test runs every entry of `FLAG_SPECS` with `--bogus` and gets `UNKNOWN_FLAG` naming
+- [x] `bun run lint`, `format:check`, `typecheck`, `build`, `test` all clean.
+- [x] A sweep test runs every entry of `FLAG_SPECS` with `--bogus` and gets `UNKNOWN_FLAG` naming
       that command's flags.
-- [ ] Every declared flag appears in that command's `--help`.
-- [ ] Dash-led text (`- item`, `---`, `-word`, `-5`) still parses as text for `draft`, `edit`,
+- [x] Every declared flag appears in that command's `--help`.
+- [x] Dash-led text (`- item`, `---`, `-word`, `-5`) still parses as text for `draft`, `edit`,
       `search`.
-- [ ] The built CLI exits 2 on an unknown flag and on a usage error, with HOME in a temp directory.
-- [ ] `formatError` unit tests: the three usage codes exit 2, other `AxiError`s exit 1, a plain
+- [x] The built CLI exits 2 on an unknown flag and on a usage error, with HOME in a temp directory.
+- [x] `formatError` unit tests: the three usage codes exit 2, other `AxiError`s exit 1, a plain
       `Error` becomes `INTERNAL_ERROR`.
-- [ ] `channels --fields nope` fails before any Slack call and lists the valid names.
-- [ ] `auth login --token-stdin` stores the piped token; `--token` still works; both together fail;
+- [x] `channels --fields nope` fails before any Slack call and lists the valid names.
+- [x] `auth login --token-stdin` stores the piped token; `--token` still works; both together fail;
       no source fails with the stdin hint.
-- [ ] `renderList` never writes a total into the array header.
+- [x] `renderList` never writes a total into the array header.
 
 ## Risks / unknowns
 
 - **Breaking output shape.** Anything that parsed `label[N of M]` must read `count:` instead.
 - **Stricter parsing.** Invocations that passed a stray flag or an extra argument, and were silently
   tolerated, now fail with exit 2.
+
+## Notes
+
+- 325 tests pass (was 225). The exit-code tests run the CLI in-process (`main(argv, stdout)`) against
+  a temp config directory rather than spawning the built binary, so `bun run test` does not depend on
+  a prior build.
+- `auth use` and `auth revoke` take the workspace as an argument or as `--team <id>`: the help
+  documented `--team` for both, and it only worked by accident of the old lenient parsing.
+- `user` and `download` no longer pass a total to `renderList`: their lists are complete by
+  construction, and what could not be resolved or fetched is named in `help[]`.
+
+## Follow-ups
+
+- **`--` does not end flag parsing.** A lone `--` is still text, as before, so there is no way to send
+  free text that itself starts with `--word`. The house rule is that `--` ends flag parsing. Tracked
+  as: None (not filed).
+- **Enum and value errors still use `USAGE`.** A bad `--type`, `--threads`, `--every` or `auth mode`
+  value and an unknown subcommand are `USAGE`; the house style has them as `VALIDATION_ERROR`. Both
+  exit 2. Tracked as: issue #43 context; None (not filed).
+- **The remaining items of issue #43** ("Smaller"): `doctor` rows as `ok|fail|skipped`; help and skill
+  generated from one `reference.ts` with a `docs:check` gate; the `--version` fast path with the
+  `axi-sdk-js` bump; `setup hooks status|uninstall|--scope`. Tracked as: issue #43.
